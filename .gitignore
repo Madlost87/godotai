@@ -1,0 +1,22 @@
+# Godot
+.godot/
+*.translation
+export/
+export_presets.cfg
+
+# Tracker Python
+tracker/.venv/
+tracker/models/*.task
+tracker/calibration.json
+__pycache__/
+.pytest_cache/
+*.pyc
+
+# Registrazioni personali (contengono movimenti di persone reali)
+recordings/session_*.jsonl
+
+# Varie
+*.tmp
+.DS_Store
+.claude/settings.local.json
+.mcp.json

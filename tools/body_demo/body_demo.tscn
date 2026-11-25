@@ -1,0 +1,27 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://tools/body_demo/body_demo.gd" id="1_demo"]
+[ext_resource type="Script" path="res://core/body/body_debug_draw.gd" id="2_draw"]
+
+[node name="BodyDemo" type="Node2D"]
+script = ExtResource("1_demo")
+
+[node name="Players" type="Node2D" parent="."]
+script = ExtResource("2_draw")
+
+[node name="HUD" type="CanvasLayer" parent="."]
+
+[node name="Info" type="Label" parent="HUD"]
+offset_left = 24.0
+offset_top = 16.0
+offset_right = 1128.0
+offset_bottom = 48.0
+theme_override_font_sizes/font_size = 22
+text = "Sorgente: -"
+
+[node name="Hint" type="Label" parent="HUD"]
+offset_left = 24.0
+offset_top = 604.0
+offset_right = 1128.0
+offset_bottom = 632.0
+text = "Simulatore — mouse: muove polso/marker  |  clic sinistro: chiudi mano  |  Tab: cambia giocatore  |  R: registra"

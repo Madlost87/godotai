@@ -1,0 +1,452 @@
+# Spec — Input corporeo per giochi proiettati
+
+Versione 0.6 — 2026-11-25 — stato: **fase 1 completata; fasi 2, 3 e 4 implementate**, da
+validare con persone, camera e proiettore reali (vedi §10). Per ora si prova con la webcam
+del portatile, senza proiettore (coordinate camera a specchio, senza calibrazione).
+
+Hardware: una webcam HP FHD Camera. Linux la espone come `/dev/video0` (immagini) e
+`/dev/video1` (solo metadati UVC); il tracker sceglie da solo il nodo che dà immagini.
+Formati: MJPG fino a 1920×1080 a 30 fps; il tracker usa 640×480.
+
+Novità della 0.3: i marker diventano facoltativi (modalità `markerless` / `markers` / `mixed`),
+id stabili senza marker, punti del busto ampliati, fasi riordinate (prima il corpo, poi i colori).
+
+## 1. Scopo
+
+Comandare giochi Godot proiettati (proiettore su muro/pavimento/tavolo) usando come input
+il corpo dei giocatori ripreso da una webcam: busto, braccia, mani e faccia, e in più,
+**facoltativamente**, marker colorati tenuti in mano (rosso, blu, giallo) che danno
+un'identità certa al giocatore.
+
+L'obiettivo di questa spec è la **pipeline di input generica**: dalla camera fino a dati
+puliti e azioni dentro Godot. **Cosa significa** ogni input in un gioco (braccio = bastone,
+mano = cursore, faccia = sterzo...) si decide dopo, gioco per gioco, nello strato di
+mappatura (§6.3), senza toccare il resto.
+
+### Fuori ambito (per ora)
+- Misure 3D reali / profondità (si lavora in 2D sul piano della proiezione).
+- Più camere, rete tra macchine diverse.
+- Riconoscimento dell'identità della persona (l'identità è data dal colore del marker).
+
+## 2. Contesto e vincoli
+
+- Godot 4.7, GDScript tipizzato, renderer Compatibility, Linux. Regole in `CLAUDE.md`.
+- Ogni input arriva ai giochi tramite **azioni dell'Input Map** o tramite l'API di
+  `BodyInput`; mai tasti o sorgenti cablate nei giochi.
+- Tracker in Python separato dal gioco: Python 3.12 in un venv dedicato
+  (`tracker/.venv`). Il Python di sistema è 3.14, che MediaPipe potrebbe non supportare.
+- Webcam disponibili sulla macchina: `/dev/video0`, `/dev/video1`.
+- Tutto gira in locale sulla stessa macchina.
+
+## 3. Requisiti
+
+### Funzionali
+| ID | Requisito |
+|----|-----------|
+| F1 | *(Facoltativo)* Rilevare fino a 3 marker colorati (rosso, blu, giallo) e darne la posizione. |
+| F2 | Rilevare lo scheletro della parte superiore del corpo (§5, punti della pose) di 1–3 persone; anche e parti non inquadrate arrivano come "non viste". |
+| F3 | Rilevare per ogni mano: posizione, mano aperta/chiusa, pizzico. |
+| F4 | Rilevare la faccia: posizione, imbardata/beccheggio/rollio della testa, bocca aperta. |
+| F5 | Dare a ogni persona un **id stabile nel tempo**, con o senza marker (§5, identità dei giocatori). |
+| F6 | Convertire tutte le coordinate camera → schermo proiettato tramite calibrazione. |
+| F7 | Ogni rilevatore (F1–F4) si attiva/disattiva da configurazione. |
+| F8 | Godot espone i dati filtrati per giocatore e segnala ingresso/uscita dei giocatori. |
+| F9 | Godot funziona anche senza tracker: simulatore (mouse/tastiera) e replay da file. |
+| F10 | Le sessioni reali si possono registrare su file e rigiocare in modo deterministico. |
+| F11 | Overlay di debug che disegna sopra il gioco tutto ciò che il sistema vede. |
+| F12 | Controller riutilizzabili che trasformano i dati in azioni/nodi di gioco (§6.3). |
+| F13 | Modalità di identità da config: `markerless`, `markers`, `mixed` (§5). |
+| F14 | Regola di assegnazione dei giocatori senza marker scelta dal gioco: a zone o in ordine di arrivo (§5). |
+| F15 | Valori derivati del busto (inclinazione, braccia alzate/aperte, accovacciato/salto) disponibili ai giochi (§6.3). |
+
+### Non funzionali
+| ID | Requisito |
+|----|-----------|
+| N1 | Latenza camera → Godot < 100 ms (obiettivo 60 ms). |
+| N2 | Tracker ≥ 30 fps con colori + pose; i rilevatori pesanti si spengono se non servono. |
+| N3 | Se il tracker si ferma o crasha, il gioco continua (giocatori marcati "persi"). |
+| N4 | Ogni strato è testabile in headless senza camera (`./check.sh`). |
+| N5 | Il protocollo è versionato; Godot ignora i pacchetti con versione sconosciuta. |
+
+## 4. Architettura
+
+```
+┌──────────────────────── tracker/ (Python) ─────────────────────────┐
+│ 1. CATTURA      camera → frame (thread dedicato, esposizione fissa)│
+│ 2. RILEVATORI   pose · mani · faccia (MediaPipe) · colori (OpenCV  │
+│                 HSV, facoltativo), ognuno attivabile da config     │
+│ 3. PROIEZIONE   camera → schermo (0..1): omografia se calibrato,   │
+│                 altrimenti coordinate camera specchiate            │
+│ 4. IDENTITÀ     tracciamento frame→frame = id stabili (calcolato   │
+│                 sullo schermo); con marker il colore ha precedenza │
+└──────────────────────────────┬─────────────────────────────────────┘
+                               │ UDP JSON su 127.0.0.1:4242
+┌──────────────────────── Godot ┴────────────────────────────────────┐
+│ 5. PONTE        autoload BodyInput: sorgente (UDP/simulatore/      │
+│                 replay), filtro One Euro, timeout, registrazione   │
+│ 6. DATI         BodyInput.get_player("red").point("wrist_r") ...   │
+│ 7. MAPPATURA    controller: Stick, Pointer, Head, Gesture          │
+│ 8. INPUT        azioni Input Map (anche analogiche) + nodi di gioco│
+└────────────────────────────────────────────────────────────────────┘
+```
+
+Gli strati 1–6 sono comuni a tutti i giochi. Gli strati 7–8 sono dove si progetta il gioco.
+
+### Struttura dei file
+```
+tracker.sh                avvio del tracker (usa tracker/.venv): ./tracker.sh --help
+tracker/                  pacchetto Python (escluso da Godot con .gdignore)
+  .venv/                  Python 3.12 (uv venv --python 3.12 tracker/.venv)
+  requirements.txt        versioni fissate
+  __main__.py             riga di comando
+  config.py               default + config.json + validazione
+  config.json             camera, rilevatori attivi, identità, proiezione, uscite
+  registry.py             registro nome → classe (base della modularità)
+  structs.py              Frame, Point, Person, Hand, Face, Marker, FrameResult
+  capture.py              sorgenti: "camera" (thread, ultimo frame), "video" (file)
+  detectors/base.py       interfaccia Detector + registro
+  detectors/pose.py       F2 ✅  ("pose", MediaPipe Pose Landmarker)
+  detectors/color.py      F1     (fase 5)
+  detectors/hands.py      F3     (fase 6)
+  detectors/face.py       F4     (fase 6)
+  projection.py           F6: CameraProjection / HomographyProjection
+  identity.py             F5, F13, F14: tracciamento + assegnatori "zones"/"arrival"
+  protocol.py             unico punto che conosce il formato v1
+  sinks.py                uscite: "udp"
+  pipeline.py             assemblaggio ed esecuzione
+  debug_view.py           finestra OpenCV (--debug)
+  synthetic.py            sorgente + rilevatore finti (--synthetic), per test e prove
+  models.py, models/      modelli MediaPipe .task (scaricati se mancano)
+  calibration.py          F6 ✅ rilevamento ArUco, omografia, ciclo --calibrate
+  control.py              canale di controllo Godot → tracker (§5.1)
+  tune_colors.py          slider HSV → config.json (fase 5)
+  calibration.json        omografia salvata (creata da --calibrate, non versionata)
+  tests/                  pytest (girano in ./check.sh)
+data/
+  aruco_4x4_50.json       pattern dei marker 0–3, letti sia da Godot sia dai test Python
+scripts/body_input/
+  body_input.gd           autoload BodyInput (strati 5–6)
+  player_state.gd         stato filtrato di un giocatore
+  one_euro_filter.gd
+  body_debug_draw.gd      BodyDebugDraw: disegna tutti i giocatori (overlay, F11)
+  sources/udp_source.gd · simulator_source.gd · replay_source.gd
+  body_metrics.gd         BodyMetrics + BodyMetrics.Baseline (F15)
+  body_colliders.gd       BodyColliders: Area2D su mani/avambracci (layer "body")
+  controllers/gesture_controller.gd   GestureController: gesto → azione Input Map
+scripts/games/bubbles/    bubbles_game.gd, bubble.gd (minigioco "Bolle")
+scripts/calibration.gd    scena di calibrazione
+scenes/
+  calibration.tscn        proietta i 4 ArUco + vista di verifica
+  body_demo.tscn          demo: tutti i giocatori su sfondo scuro
+  bubbles.tscn            minigioco "Bolle"
+play_body.sh              tracker (webcam) + gioco insieme
+recordings/*.jsonl        sessioni registrate (una riga = un pacchetto)
+tests/                    test headless Godot (incluso end-to-end con il tracker sintetico)
+```
+
+## 5. Protocollo tracker → Godot (v1)
+
+- Trasporto: UDP, `127.0.0.1:4242` (configurabile), un JSON UTF-8 per datagramma,
+  massimo 8 KB.
+- Frequenza: un pacchetto per frame elaborato (30–60 Hz). Ogni pacchetto è uno stato
+  completo, non un delta: perderne uno non crea problemi.
+- Coordinate: `x`, `y` normalizzati in 0..1 sullo schermo proiettato (origine in alto a
+  sinistra). Possono uscire da 0..1 se il punto è fuori dalla proiezione.
+  Se non c'è calibrazione, `"space": "camera"` e le coordinate sono relative al frame
+  camera, specchiate orizzontalmente.
+- Punto: `[x, y, c]`, dove `c` è l'affidabilità 0..1. **Campo assente = non visto.**
+
+```json
+{
+  "v": 1,
+  "t": 12.345,
+  "space": "screen",
+  "fps": 31.2,
+  "players": [
+    {
+      "id": "red",
+      "marker": {"x": 0.42, "y": 0.61, "area": 0.004},
+      "pose": {
+        "nose": [0.45, 0.18, 0.99],
+        "shoulder_l": [0.50, 0.33, 0.98], "shoulder_r": [0.40, 0.33, 0.98],
+        "elbow_l": [0.55, 0.45, 0.90],    "elbow_r": [0.36, 0.47, 0.93],
+        "wrist_l": [0.57, 0.58, 0.85],    "wrist_r": [0.42, 0.60, 0.91],
+        "hip_l": [0.49, 0.62, 0.95],      "hip_r": [0.41, 0.62, 0.95]
+      },
+      "hands": {
+        "r": {"wrist": [0.42, 0.60, 0.9], "index_tip": [0.43, 0.55, 0.9],
+              "open": 0.92, "pinch": 0.05}
+      },
+      "face": {"x": 0.45, "y": 0.17, "yaw": -12.0, "pitch": 4.0, "roll": 1.5,
+               "mouth_open": 0.7}
+    }
+  ]
+}
+```
+
+- `id`: `"red"`, `"blue"`, `"yellow"` se c'è un marker associato; altrimenti `"p1"`,
+  `"p2"`, `"p3"` (stabili, vedi sotto). Il campo `marker` è presente solo se c'è un marker.
+- `l`/`r` sono la sinistra/destra **della persona**, non dell'immagine.
+- Angoli in gradi. `open`, `pinch`, `mouth_open` vanno da 0 a 1.
+
+### Campi extra
+Un pacchetto può avere campi in più, che Godot passa così come sono nel segnale
+`BodyInput.packet_received`. Oggi: `"calibration"` (stato della calibrazione, §7), inviato
+con `players` vuota mentre il tracker è in modalità `--calibrate`.
+
+### 5.1 Canale di controllo Godot → tracker
+UDP JSON su `127.0.0.1:4243` (`control` in config.json, `BodyInput.control_port` in Godot),
+un oggetto per datagramma con un campo `"type"`. Messaggi:
+
+| `type` | Campi | Uso |
+|--------|-------|-----|
+| `calibration_layout` | `dictionary`, `screen: [w, h]`, `markers: {"0": [[x,y]×4], ...}` (angoli TL, TR, BR, BL normalizzati) | la scena di calibrazione dice dove sono i marker, ogni 0,5 s |
+| `session` | `max_players` (1–8) | il gioco dice di quanti giocatori ha bisogno; ripetuto ogni 1 s finché il gioco è aperto. Il tracker cambia `identity.max_players` e il numero di persone cercate da MediaPipe (`num_poses`), a caldo |
+
+In futuro `session` potrà dire anche quali rilevatori servono (mani, faccia, colori).
+Lato tracker ogni rilevatore riceve la sessione in `Detector.apply_session()`.
+
+### Punti della pose
+Tutti facoltativi (assente = non visto o fuori inquadratura):
+`nose`, `eye_l`, `eye_r`, `ear_l`, `ear_r`, `mouth_l`, `mouth_r`,
+`shoulder_l`, `shoulder_r`, `elbow_l`, `elbow_r`, `wrist_l`, `wrist_r`,
+`index_l`, `index_r`, `hip_l`, `hip_r`, e due punti calcolati dal tracker:
+`shoulder_c` (centro delle spalle) e `hip_c` (centro delle anche).
+Ginocchia e piedi si possono aggiungere più avanti con gli stessi nomi di MediaPipe
+(`knee_l`, `ankle_l`...), senza cambiare versione del protocollo.
+
+### Identità dei giocatori (F5, F13, F14)
+Modalità in `tracker/config.json` → `"identity": {"mode": ..., "assign": ...}`:
+
+| `mode` | Comportamento |
+|--------|---------------|
+| `markerless` (default) | Nessun rilevatore colori. Ogni scheletro riceve un id `p1`..`p3` secondo `assign`. |
+| `markers` | Solo le persone con un marker sono giocatori (`red`/`blue`/`yellow`); le altre non vengono inviate. |
+| `mixed` | Chi ha un marker prende il colore; gli altri ricevono `p1`..`p3`. |
+
+**Tracciamento (sempre attivo).** Il punto di riferimento di una persona è
+`shoulder_c` (in mancanza `nose`, poi `hip_c`), nello spazio dello schermo. Ogni traccia
+stima la propria velocità; a ogni frame gli scheletri si agganciano alla **posizione
+prevista** della traccia più vicina, entro 0.15, con accoppiamento greedy per distanza
+crescente. Grazie alla previsione, due persone che si incrociano non si scambiano l'id.
+Una persona non vista resta "in attesa" per 0.5 s (il suo id non viene dato ad altri):
+se riappare vicino alla posizione prevista, riprende lo stesso id.
+
+**Assegnazione degli id `pN`** (`assign`):
+- `zones` (default): lo schermo è diviso in N fasce verticali (N = `max_players`, default 2);
+  l'id è quello della fascia in cui la persona **entra**, e poi lo mantiene finché
+  è tracciata. Due persone nella stessa fascia: la seconda prende la prima fascia libera.
+- `arrival`: il primo id libero, nell'ordine in cui le persone compaiono.
+
+**Associazione ai marker** (`markers`/`mixed`): per ogni marker si sceglie lo scheletro
+con il polso più vicino entro 0.08, accoppiamento greedy; ogni scheletro va a un solo
+marker. Una volta associato, lo scheletro tiene il colore finché è tracciato, anche se il
+marker sparisce per un attimo. Mani e faccia vanno allo scheletro con il polso / il naso
+più vicino.
+
+## 6. Lato Godot
+
+### 6.1 Autoload `BodyInput`
+```gdscript
+signal player_entered(id: StringName)
+signal player_lost(id: StringName)
+signal frame_updated
+signal packet_received(packet: Dictionary)   # pacchetto grezzo, con eventuali campi extra
+signal source_changed(source_name: String)
+signal replay_finished
+
+enum Source { UDP, SIMULATOR, REPLAY }
+var control_port: int = 4243
+func send_control(message: Dictionary) -> void  # canale di controllo §5.1
+func set_session(session: Dictionary) -> void   # es. {"max_players": 1}, ripetuta ogni 1 s
+func clear_session() -> void
+var source: Source                    # default UDP; SIMULATOR se nessun pacchetto entro 2 s (configurabile)
+var lost_timeout: float = 0.3         # secondi senza dati prima di "perso"
+
+func get_player(id: StringName) -> PlayerState   # null se assente
+func get_players() -> Array[PlayerState]
+func start_recording(path: String) -> void
+func stop_recording() -> void
+func play_recording(path: String, loop := false) -> void
+```
+
+`PlayerState`:
+```gdscript
+var id: StringName
+func has_point(name: StringName) -> bool          # "wrist_r", "marker", "face", "hand_r.index_tip"...
+func point(name: StringName) -> Vector2           # in pixel della viewport, filtrato
+func confidence(name: StringName) -> float
+func value(name: StringName) -> float             # "hand_r.open", "face.yaw", "face.mouth_open"...
+```
+
+- **Filtro**: One Euro per ogni punto (parametri `min_cutoff`, `beta` in config).
+- **Perdita**: un punto non visto mantiene l'ultimo valore per `lost_timeout`, poi
+  `has_point` diventa falso. Se il giocatore non ha punti per `lost_timeout`,
+  parte `player_lost`.
+- **Simulatore**: il mouse muove marker e polso destro del giocatore attivo (la spalla
+  resta dove è comparso, il gomito è calcolato). Azioni: `sim_hand_close` (clic
+  sinistro, mano chiusa), `sim_next_player` (Tab, red → blue → yellow).
+- **Cambio sorgente**: azzera tutti i giocatori (emette `player_lost`), per non
+  mescolare dati simulati e reali. Da UDP si ingerisce solo il pacchetto più recente
+  per frame.
+- **Porta**: `listen(port)` cambia porta (i test usano 42424). Se la porta è occupata
+  c'è un warning e il gioco prosegue.
+- **Registrazione**: file `.jsonl` con i pacchetti grezzi e il tempo di arrivo; il
+  replay li rimette in coda con gli stessi tempi.
+
+### 6.2 Overlay di debug (F11)
+Già disponibile: `BodyDebugDraw` (Node2D) disegna marker, scheletri, mani, faccia con la
+direzione dello sguardo e id dei giocatori; si aggiunge come figlio a qualsiasi scena
+(lo usano `body_demo.tscn` e `calibration.tscn`). Da completare in fase 4: una `CanvasLayer`
+che lo contiene, si accende/spegne con l'azione `toggle_debug_overlay` e mostra fps del
+tracker, latenza e sorgente attiva.
+
+### 6.3 Controller (strato 7)
+Nodi da aggiungere alla scena di gioco, configurati da Inspector con `player_id` e
+`side`. Producono **azioni dell'Input Map** (`Input.action_press(azione, forza)` per
+valori analogici) e/o proprietà leggibili. Nomi delle azioni: `<giocatore>_<controller>_<cosa>`,
+es. `red_pointer_click`, `blue_head_steer_left`.
+
+| Controller | Ingresso | Uscita |
+|------------|----------|--------|
+| `StickController` | spalla → polso (o gomito → marker) | segmento con `Area2D`/forma di collisione che segue il braccio, angolo, velocità della punta |
+| `PointerController` | marker o `hand_*.index_tip` | posizione cursore; click per sosta (default 1 s) o pizzico |
+| `HeadController` | `face.yaw` / `face.pitch` | assi analogici (`*_steer_left/right`, `*_up/down`) |
+| `GestureController` | `hand_*.open`, `face.mouth_open`, braccia alzate... | azioni digitali con isteresi |
+
+Quale controller usare e come si chiama ogni azione si decide gioco per gioco.
+
+**Valori derivati del busto (F15)**: una classe di utilità `BodyMetrics` (statica, in
+GDScript) calcola da un `PlayerState`, usando solo i punti disponibili:
+
+| Valore | Calcolo | Uso tipico |
+|--------|---------|------------|
+| `torso_lean` | angolo di `shoulder_c` → `hip_c` dalla verticale; senza anche, inclinazione della linea delle spalle | sterzare, schivare |
+| `arm_raised_l/r` | 0..1, polso sotto la spalla → sopra la testa | saltare, alzare la mano per rispondere |
+| `arms_spread` | distanza tra i polsi / larghezza delle spalle | volare, "grande/piccolo" |
+| `arm_angle_l/r` | angolo spalla → polso | bastone, puntare |
+| `crouch` / `jump` | spostamento verticale di `shoulder_c` rispetto alla posizione di riposo (media mobile lenta), normalizzato sulla larghezza delle spalle | accovacciarsi, saltare |
+
+I rapporti sono normalizzati sulla larghezza delle spalle, così non dipendono dalla
+distanza dalla camera. `BodyMetrics` vive in Godot, non nel tracker: si può cambiare
+senza toccare Python e si testa con le registrazioni.
+
+**Implementato (fase 4):**
+- `BodyMetrics` (statica): `shoulder_width`, `shoulder_center`, `has_hand`, `hand_center`
+  (tra polso e indice, o il polso), `torso_lean`, `arm_raised`, `arms_spread`, `arm_angle`.
+  NAN se mancano i punti. `BodyMetrics.Baseline` (una per giocatore): `update()`,
+  `crouch()`, `jump()`; il riposo si adatta in ~3 s.
+- `GestureController` (Node): gesti `ANY_ARM_RAISED`, `BOTH_ARMS_RAISED`, `ARMS_SPREAD`
+  → azione dell'Input Map, con soglie on/off (isteresi), `hold_time`, filtro per
+  giocatore; segnali `activated`/`deactivated`. Gira con `process_priority = -10`.
+- `BodyColliders` (Node2D): `Area2D` sulle mani (cerchi) e, se attivato, sugli avambracci
+  (rettangoli), sul layer fisico 2 "body". Metadati `player_id`, `part`, `velocity`;
+  `BodyColliders.owner_of(area)`. Disegna le mani come "cursori" colorati per giocatore.
+  Misure in proporzione all'altezza dello schermo.
+
+**Nota sui test headless**: con `-s` lo script di test viene compilato prima che esista
+l'autoload `BodyInput`, quindi le classi che lo usano (`GestureController`,
+`BodyColliders`, `Bubble`, `BodyDebugDraw`) vanno caricate con `load()` e non citate per
+nome. La viewport headless è 64×64 e non si ridimensiona: i test lavorano in proporzione.
+
+### 6.4 Minigioco "Bolle" (fase 4)
+`scenes/bubbles.tscn`, script in `scripts/games/bubbles/`. **Un giocatore**: con la webcam
+del portatile bisogna stare vicini per vedere il busto, e in due non ci si sta. All'avvio
+il gioco chiede al tracker `{"max_players": 1}` (§5.1). Le bolle salgono dal basso
+ondeggiando e si scoppiano con le mani. Normale +1, dorata +3, spinosa −3. La partita
+dura 60 s e accelera nel tempo. Si parte e si riparte alzando un braccio (azione
+`game_start`, anche con Invio). Punteggio e record della sessione.
+Avvio con la webcam: `./play_body.sh` (tracker in background + gioco).
+
+## 7. Calibrazione
+
+**Procedura** (da ripetere quando si spostano camera o proiettore):
+1. `./play.sh res://tools/calibration/calibration.tscn` sul proiettore: sfondo bianco e 4 marker
+   ArUco (DICT_4X4_50, id 0 alto sx, 1 alto dx, 2 basso dx, 3 basso sx) a schermo intero.
+   Per provarla in finestra: `./play.sh res://tools/calibration/calibration.tscn -- --windowed`.
+2. `./tracker.sh --calibrate --debug`: il tracker riceve il layout sul canale di controllo,
+   cerca i marker nella camera e manda lo stato a Godot, che lo mostra al centro dello schermo.
+3. Con tutti i 4 marker visibili per `frames_needed` frame consecutivi (default 15), il
+   tracker fa la media degli angoli, calcola l'omografia con i 16 angoli (minimi quadrati)
+   e la salva in `tracker/calibration.json` se l'errore RMS è sotto `max_error` (default 2%
+   dello schermo). Altrimenti segnala `failed` e riprova.
+4. Il tracker passa da solo al tracciamento normale (con `--calibrate-only` esce); la scena
+   passa da sola alla **vista di verifica** (sfondo scuro, griglia, scheletri): lo scheletro
+   deve cadere sopra la persona. Tasto C: torna ai marker. Esc: esci.
+
+**Geometria dei marker**: lato = 22% del lato corto dello schermo, margine 4%, sfondo
+bianco (fa da zona di rispetto). Gli angoli vengono calcolati da Godot e inviati al tracker,
+quindi funziona con qualsiasi risoluzione e rapporto del proiettore.
+
+**Stati** (campo `calibration` dei pacchetti): `waiting_layout` → `searching` (non vede
+tutti i marker; `found` dice quali) → `collecting` (`progress` 0..1) → `done` (`error`)
+oppure `failed` (`message`).
+
+Opzioni del tracker: `--calibrate`, `--calibrate-only`, `--calibration-timeout S`,
+`--uncalibrated` (ignora la calibrazione salvata).
+
+Limite noto: l'omografia è esatta solo sul piano della proiezione. Il corpo sta davanti,
+quindi la posizione corrisponde a dove cadrebbe la sua **ombra**. È una scelta voluta.
+
+## 8. Rischi e contromisure
+
+| Rischio | Contromisura |
+|---------|--------------|
+| Il proiettore proietta colori scambiati per marker | Palette dei giochi senza rosso/blu/giallo saturi; filtro su area e forma; esposizione e bilanciamento del bianco fissi; in seguito LED o IR |
+| La luce proiettata sul corpo disturba MediaPipe | Luce ambiente minima, camera vicina all'asse del proiettore, soglie di affidabilità |
+| Carico CPU con tutti i rilevatori attivi | Rilevatori attivabili da config; ogni gioco dichiara cosa usa; faccia/mani a frequenza ridotta |
+| L'identità degli scheletri salta | Tracciamento con attesa di 0.5 s; assegnazione a zone; in `mixed`/`markers` il colore del marker ha la precedenza |
+| MediaPipe non supporta il Python di sistema | venv con Python 3.12 |
+
+## 9. Test
+
+- **Godot (headless, `./check.sh`)**:
+  - Parsing del protocollo: pacchetti validi, campi mancanti, versione sconosciuta.
+  - Invio di pacchetti UDP finti a `BodyInput` e verifica di posizioni, filtro e timeout.
+  - Replay di registrazioni in `recordings/` e verifica di eventi e azioni dei controller.
+- **Tracker (`pytest`)**: immagini sintetiche con cerchi colorati e immagini ArUco per
+  colori e calibrazione; associazione con scheletri finti.
+- **Manuale**: overlay di debug con camera e proiettore reali.
+
+## 10. Fasi e criteri di accettazione
+
+| Fase | Contenuto | Fatto quando |
+|------|-----------|--------------|
+| 1 ✅ | Ponte Godot: `BodyInput`, `PlayerState`, filtro, simulatore, registrazione/replay, scena demo (`scenes/body_demo.tscn`) | Test headless passano; con il mouse i cerchi si muovono |
+| 2 🟡 | Tracker corpo: cattura, MediaPipe Pose, identità `markerless` (tracciamento + `zones`/`arrival`), invio UDP, finestra di debug | 2 persone reali nella demo con id stabili per 1 minuto, anche incrociandosi; ≥ 25 fps. **Codice e test fatti; manca la prova con persone vere** |
+| 3 🟡 | Calibrazione ArUco | Lo scheletro proiettato sta sopra la persona come un'ombra (errore < 2% dello schermo sul piano). **Codice e test fatti (anche: marker renderizzati da Godot riconosciuti da OpenCV); manca la prova con proiettore e camera reali** |
+| 4 🟡 | `BodyMetrics` + primi controller + minigioco "Bolle" (§6.4) | Un minigioco giocabile solo col corpo, senza marker. **Fatto e testato con simulatore e tracker sintetico; manca la prova con la webcam del portatile.** Ancora da fare: la `CanvasLayer` di debug con fps e latenza (§6.2) |
+| 5 | Marker colorati (OpenCV + `tune_colors.py`), modalità `markers`/`mixed` | 3 marker stabili col proiettore acceso; il colore resta allo scheletro giusto |
+| 6 | Mani e faccia (MediaPipe Hands, Face) | Mano aperta/chiusa e inclinazione della testa nella demo |
+| 7 | Rifinitura: latenza, parametri, `play.sh` avvia tracker + gioco | N1–N3 rispettati |
+
+## 10.1 Prestazioni misurate (2026-11-25, Intel Core Ultra 7 155H, 22 thread, solo CPU)
+
+| Stadio | Misura |
+|--------|--------|
+| Camera HP FHD 640×480 MJPG | 30 fps (con `buffers: 2`; con 1 buffer scendeva a 20 fps) |
+| Pose `lite`, 1–2 persone | 20–21 ms/frame (p95 28 ms) → max ~50 fps |
+| Pose `full`, 1–2 persone | 26–27 ms/frame (p95 31 ms) → max ~37 fps |
+| Pose `heavy`, 1 / 2 persone | 60 / 95 ms/frame → 17 / 10 fps: **non adatto** al tempo reale |
+| Identità + pacchetto + UDP | < 0,1 ms |
+| Tracker a regime (2 persone, 30 fps) | `lite` 0,75 core, `full` 1,0 core (~4% della macchina), RAM ~270 MB |
+| Godot `ingest_packet` (2 giocatori × 27 punti) | 0,15 ms |
+| Ritardo del filtro One Euro | 47 ms a 0,1 schermi/s, 18 ms a 0,5, 8 ms a 1,5 (adattivo) |
+| Gioco Bolle (20–100 bolle, 2 giocatori) | costo logico trascurabile |
+
+**Latenza stimata camera → schermo** (fase 2, `full`): esposizione e trasferimento della
+camera 33–66 ms + pose 27 ms + attesa del frame Godot ~8 ms + filtro 8–18 ms (mani veloci)
++ fisica fino a 17 ms + rendering e vsync 17–33 ms ≈ **110–170 ms** su monitor; il
+proiettore aggiunge di solito 15–50 ms. La parte camera e la parte display sono stime: da
+misurare con un test dedicato (fase 7).
+
+Misure ottenute con l'immagine pubblica di prova di MediaPipe (`pose.jpg`), composta in
+frame con 1 e 2 persone in movimento.
+
+## 11. Decisioni aperte
+
+- Disposizione: proiezione su muro, pavimento o tavolo; posizione della camera.
+- Numero di giocatori contemporanei (default 2) e se ognuno ha un solo marker.
+- Inquadratura: solo busto o corpo intero (decide se servono anche, ginocchia, piedi).
+- Significato di braccio, mano e faccia in ciascun gioco (fase 5).
+- Tipo di marker fisico (cartoncino fluo, gommapiuma, LED).

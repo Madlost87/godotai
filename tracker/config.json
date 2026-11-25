@@ -1,0 +1,21 @@
+{
+  "source": {
+    "type": "camera",
+    "device": "auto",
+    "width": 640,
+    "height": 480,
+    "fps": 30
+  },
+  "detectors": {
+    "pose": {"enabled": true, "model": "full", "num_poses": 2}
+  },
+  "identity": {
+    "mode": "markerless",
+    "assign": "zones",
+    "max_players": 2
+  },
+  "projection": {"mirror": true},
+  "outputs": [
+    {"type": "udp", "host": "127.0.0.1", "port": 4242}
+  ]
+}
