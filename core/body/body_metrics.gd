@@ -34,10 +34,19 @@ static func has_hand(p: PlayerState, side: String) -> bool:
 	return p.has_point(StringName("wrist_" + side)) or p.has_point(StringName("hand_%s.wrist" % side))
 
 
-## Centro della mano: tra polso e indice se ci sono entrambi, altrimenti il polso.
+## Centro della mano, calcolato sempre nello stesso modo finché ci sono gli stessi punti
+## (niente salti): prolunga l'avambraccio oltre il polso (il gomito è un punto stabile);
+## senza gomito usa il punto tra polso e indice; altrimenti il polso.
+const HAND_FROM_FOREARM := 0.3
+
+
 static func hand_center(p: PlayerState, side: String) -> Vector2:
 	var wrist := StringName("wrist_" + side)
+	var elbow := StringName("elbow_" + side)
 	var index := StringName("index_" + side)
+	if p.has_point(wrist) and p.has_point(elbow):
+		var w := p.point(wrist)
+		return w + (w - p.point(elbow)) * HAND_FROM_FOREARM
 	if p.has_point(wrist) and p.has_point(index):
 		return (p.point(wrist) + p.point(index)) * 0.5
 	if p.has_point(wrist):

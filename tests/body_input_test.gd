@@ -70,11 +70,11 @@ func _test_filter(bi: Node) -> void:
 		var noise := 0.01 if i % 2 == 0 else -0.01
 		bi.ingest_packet({"v": 1, "players": [{"id": "red", "marker": {"x": 0.5 + noise, "y": 0.5}}]}, t + i / 30.0)
 		if i >= 20:
-			max_dev = maxf(max_dev, absf(bi.get_player(&"red").point_normalized(&"marker").x - 0.5))
+			max_dev = maxf(max_dev, absf(bi.get_player(&"red").point_filtered(&"marker").x - 0.5))
 	_check(max_dev < 0.004, "tremolio ±0.010 ridotto a ±%.4f" % max_dev)
 	for i in 30:
 		bi.ingest_packet({"v": 1, "players": [{"id": "red", "marker": {"x": 0.9, "y": 0.5}}]}, t + 2.0 + i / 30.0)
-	var x: float = bi.get_player(&"red").point_normalized(&"marker").x
+	var x: float = bi.get_player(&"red").point_filtered(&"marker").x
 	_check(x > 0.88, "spostamento seguito entro 1 s (x=%.3f)" % x)
 	bi.update_timeouts(t + 10.0)
 	_entered.clear()

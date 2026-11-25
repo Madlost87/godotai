@@ -62,7 +62,10 @@ func _test_metrics() -> void:
 		"wrist_r": Vector2(0.6, 0.2), "index_r": Vector2(0.62, 0.16), "wrist_l": Vector2(0.4, 0.7),
 	})
 	_check(is_equal_approx(BodyMetrics.shoulder_width(p), 115.2), "larghezza spalle in pixel")
-	_check(BodyMetrics.hand_center(p, "r").is_equal_approx(Vector2(0.61, 0.18) * Vector2(SIZE)), "centro mano tra polso e indice")
+	_check(BodyMetrics.hand_center(p, "r").is_equal_approx(Vector2(0.61, 0.18) * Vector2(SIZE)), "senza gomito: centro mano tra polso e indice")
+	var with_elbow := state({"elbow_r": Vector2(0.5, 0.5), "wrist_r": Vector2(0.6, 0.3), "index_r": Vector2(0.7, 0.3)})
+	_check(BodyMetrics.hand_center(with_elbow, "r").is_equal_approx(Vector2(0.63, 0.24) * Vector2(SIZE)),
+		"con il gomito: avambraccio prolungato del 30%% oltre il polso (stabile anche se l'indice va e viene)")
 	_check(absf(BodyMetrics.torso_lean(p)) < 0.001, "busto dritto → lean 0")
 	_check(BodyMetrics.arm_raised(p, "r") == 1.0, "braccio destro alzato → 1")
 	_check(BodyMetrics.arm_raised(p, "l") == 0.0, "braccio sinistro giù → 0")
@@ -140,7 +143,8 @@ func _test_colliders(bi: Node) -> void:
 	var vp: Vector2 = root.get_visible_rect().size
 	var hand: Area2D = bc.get_part(&"p1", "hand_r")
 	_check(hand != null and hand.get_meta(&"player_id") == &"p1", "area sulla mano destra di p1")
-	_check(hand != null and hand.global_position.distance_to(Vector2(0.7, 0.3) * vp) < vp.y * 0.01, "area nella posizione della mano")
+	var expected: Vector2 = load("res://core/body/body_metrics.gd").hand_center(bi.get_player(&"p1"), "r")
+	_check(hand != null and hand.global_position.distance_to(expected) < vp.y * 0.01, "area nel centro della mano")
 	_check(hand != null and hand.collision_layer == BODY_LAYER, "sul layer body")
 	_check(bc.get_part(&"p1", "forearm_r") != null and bc.get_part(&"p1", "forearm_l") == null, "avambraccio destro (c'è il gomito), sinistro no")
 

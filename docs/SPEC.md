@@ -305,6 +305,18 @@ func value(name: StringName) -> float             # "hand_r.open", "face.yaw", "
 ```
 
 - **Filtro**: One Euro per ogni punto (parametri `min_cutoff`, `beta` in config).
+  Il filtro usa l'istante di scatto del sensore (campo `t` del pacchetto), non l'ora di
+  arrivo: le irregolarità di rete non diventano finte accelerazioni. Si elaborano tutti i
+  pacchetti arrivati, in ordine.
+- **Fluidità a schermo** (`display_smoothing`, default attivo): il sensore dà ~30
+  campioni/s, lo schermo 60. `point()` prosegue il movimento con la velocità stimata tra
+  un campione e l'altro (max `extrapolation_limit` = 50 ms) e assorbe in ~`correction_time`
+  (60 ms) la differenza quando arriva il campione nuovo. `point_filtered()` dà il campione
+  puro. Misurato (`tests/smoothness_test.gd`): variazione della velocità a schermo da 195%
+  a 10%, frame fermi da 79% a 0%, ritardo medio da 45 a 26 ms; arresto improvviso: va
+  oltre di ~1,6% dello schermo, poi si ferma nel punto giusto.
+- **Centro della mano** (`BodyMetrics.hand_center`): avambraccio prolungato del 30% oltre
+  il polso (il gomito è stabile); senza gomito tra polso e indice; altrimenti il polso.
 - **Perdita**: un punto non visto mantiene l'ultimo valore per `lost_timeout`, poi
   `has_point` diventa falso. Se il giocatore non ha punti per `lost_timeout`,
   parte `player_lost`.

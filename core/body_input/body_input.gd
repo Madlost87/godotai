@@ -30,6 +30,10 @@ var simulator_fallback_after: float = 2.0
 ## Filtro One Euro, in coordinate normalizzate.
 var filter_min_cutoff: float = 1.0
 var filter_beta: float = 10.0
+## Fluidità a schermo (vedi PlayerState): previsione tra i campioni e correzione dolce.
+var display_smoothing: bool = true
+var extrapolation_limit: float = 0.05
+var correction_time: float = 0.06
 
 ## Porta del canale di controllo Godot → tracker (send_control).
 var control_port: int = DEFAULT_CONTROL_PORT
@@ -104,7 +108,8 @@ func _process(delta: float) -> void:
 	if source == Source.REPLAY:
 		var due := _replay.poll(t)
 		if not due.is_empty():
-			ingest_packet(due.back(), t)
+			for pkt in due:
+				ingest_packet(pkt, t)
 		if _replay.is_finished():
 			stop_replay()
 			replay_finished.emit()
@@ -113,7 +118,8 @@ func _process(delta: float) -> void:
 		if not packets.is_empty():
 			_last_udp_time = t
 			_set_source(Source.UDP)
-			ingest_packet(packets.back(), t)  # solo il più recente: meno latenza
+			for pkt in packets:  # tutti, in ordine: ogni campione ha il suo istante di scatto
+				ingest_packet(pkt, t)
 		elif source == Source.UDP and simulator_fallback and t - _last_udp_time > simulator_fallback_after:
 			_set_source(Source.SIMULATOR)
 		if source == Source.SIMULATOR:
@@ -137,6 +143,10 @@ func ingest_packet(data: Variant, t: float = -1.0) -> bool:
 	var fps: Variant = d.get("fps")
 	if fps is float or fps is int:
 		tracker_fps = float(fps)
+	# Istante di scatto del sensore (orologio del tracker): serve solo per le differenze
+	# di tempo tra campioni (filtro, velocità), quindi l'orologio può essere diverso.
+	var pt: Variant = d.get("t")
+	var sample_t: float = float(pt) if (pt is float or pt is int) else t
 	var caps: Variant = d.get("caps")
 	_set_capabilities(PackedStringArray(caps) if caps is Array else _infer_capabilities(players))
 
@@ -150,7 +160,10 @@ func ingest_packet(data: Variant, t: float = -1.0) -> bool:
 		if is_new:
 			p = PlayerState.new(id)
 		p.screen_size = size
-		p.apply(entry, t, filter_min_cutoff, filter_beta)
+		p.display_smoothing = display_smoothing
+		p.extrapolation_limit = extrapolation_limit
+		p.correction_time = correction_time
+		p.apply(entry, t, filter_min_cutoff, filter_beta, sample_t)
 		if is_new and not p.is_empty():
 			_players[id] = p
 			player_entered.emit(id)
