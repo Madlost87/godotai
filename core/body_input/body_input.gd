@@ -30,6 +30,10 @@ var simulator_fallback_after: float = 2.0
 ## Filtro One Euro, in coordinate normalizzate.
 var filter_min_cutoff: float = 1.0
 var filter_beta: float = 10.0
+## Ritardo stimato tra un movimento reale e il momento in cui un gioco lo "vede"
+## (camera + tracker + rete + filtro, al netto della previsione). I giochi di timing
+## giudicano un gesto avvenuto a `now() - input_latency`. Misure in docs/SPEC.md §10.1.
+var input_latency: float = 0.10
 ## Fluidità a schermo (vedi PlayerState): previsione tra i campioni e correzione dolce.
 var display_smoothing: bool = true
 var extrapolation_limit: float = 0.05

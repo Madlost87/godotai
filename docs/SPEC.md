@@ -422,6 +422,16 @@ filtri di `DwellTarget` (`accept_parts`, `accept_players`, `enabled`, segnale
 conta solo per quello più vicino al suo centro (anche se occupato). Evita la doppia
 selezione con la mano a cavallo di due caselle; usato in Tris e nel menu.
 
+### 6.7 Gioco "Taglia il filo"
+`games/taglia_filo/`. Una lancetta gira su un quadrante con una finestra verde; si taglia
+portando la mano destra sul filo (a destra) quando la lancetta è nel verde, poi la mano
+deve uscire per ricaricare. Nel verde +1, al centro +2; la finestra si sposta e si
+stringe (×0,9, min ~11°), la lancetta accelera (×1,1, max ~340°/s) e dal livello 4
+inverte il senso a intervalli casuali. Fuori dal verde o 3 passaggi senza taglio: −1
+vita (3 vite). **Compensazione del ritardo**: il taglio si giudica dove era la lancetta a
+`now − BodyInput.input_latency` (0,10 s di default; la storia esatta del movimento è in
+`needle_angle_at`). `BodyInput.input_latency` è nel core per tutti i giochi di timing.
+
 ## 7. Calibrazione
 
 **Procedura** (da ripetere quando si spostano camera o proiettore):

@@ -201,7 +201,7 @@ func _draw() -> void:
 		var r := button_rect()
 		draw_rect(r, Color(0.15, 0.18, 0.24))
 		draw_rect(r, Color(TEXT_COLOR, 0.6), false, w * 0.6)
-		var fs := int(r.size.y * 0.24)
+		var fs := maxi(int(r.size.y * 0.24), 8)
 		draw_string(ThemeDB.fallback_font, Vector2(r.position.x, r.get_center().y + fs * 0.35), "Nuova partita",
 			HORIZONTAL_ALIGNMENT_CENTER, r.size.x, fs, TEXT_COLOR)
 

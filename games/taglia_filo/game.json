@@ -1,0 +1,10 @@
+{
+  "id": "taglia_filo",
+  "title": "Taglia il filo",
+  "description": "La lancetta gira: taglia il filo quando passa nel verde. La finestra si stringe, la lancetta accelera e a volte inverte. 3 vite.",
+  "controls": "Porta la mano destra sul filo (a destra) quando la lancetta è nel verde; poi toglila per ricaricare. Esc: menu.",
+  "scene": "taglia_filo.tscn",
+  "players": {"min": 1, "max": 1},
+  "requires": ["effectors"],
+  "optional": ["pose"]
+}

@@ -91,13 +91,13 @@ func _draw() -> void:
 	var vp := get_viewport_rect().size
 	draw_rect(Rect2(Vector2.ZERO, vp), BG)
 	var font := ThemeDB.fallback_font
-	var fs := int(vp.y * 0.075)
+	var fs := maxi(int(vp.y * 0.075), 8)
 	draw_string(font, Vector2(0, vp.y * 0.13), "GIOCHI", HORIZONTAL_ALIGNMENT_CENTER, vp.x, fs, TEXT)
 	draw_string(font, Vector2(0, vp.y * 0.18), "Tieni la mano su un gioco per sceglierlo  ·  frecce + Invio  ·  Esc esce",
-		HORIZONTAL_ALIGNMENT_CENTER, vp.x, int(vp.y * 0.03), TEXT_DIM)
+		HORIZONTAL_ALIGNMENT_CENTER, vp.x, maxi(int(vp.y * 0.03), 8), TEXT_DIM)
 	if games.is_empty():
 		draw_string(font, Vector2(0, vp.y * 0.5), "Nessun gioco. Creane uno con ./new_game.sh <id> \"Titolo\"",
-			HORIZONTAL_ALIGNMENT_CENTER, vp.x, int(vp.y * 0.035), WARN)
+			HORIZONTAL_ALIGNMENT_CENTER, vp.x, maxi(int(vp.y * 0.035), 8), WARN)
 		return
 	for i in games.size():
 		_draw_card(i, font)
@@ -110,10 +110,10 @@ func _draw_card(i: int, font: Font) -> void:
 	draw_rect(r, CARD_BG)
 	draw_rect(r, CARD_FOCUS if i == focus else Color(1, 1, 1, 0.15), false, 4.0 if i == focus else 2.0)
 	var y := r.position.y + pad
-	var title_fs := int(r.size.y * 0.13)
+	var title_fs := maxi(int(r.size.y * 0.13), 8)
 	y += title_fs
 	draw_string(font, Vector2(r.position.x + pad, y), m.title, HORIZONTAL_ALIGNMENT_LEFT, r.size.x - pad * 2.0, title_fs, TEXT)
-	var body_fs := int(r.size.y * 0.065)
+	var body_fs := maxi(int(r.size.y * 0.065), 8)
 	y += body_fs * 1.6
 	draw_multiline_string(font, Vector2(r.position.x + pad, y), m.description, HORIZONTAL_ALIGNMENT_LEFT,
 		r.size.x - pad * 2.0, body_fs, 5, TEXT_DIM)

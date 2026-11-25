@@ -1,0 +1,35 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://games/taglia_filo/taglia_filo_game.gd" id="1_game"]
+[ext_resource type="Script" path="res://core/body/body_debug_draw.gd" id="2_draw"]
+[ext_resource type="Script" path="res://core/body/body_colliders.gd" id="3_colliders"]
+
+[node name="TagliaFilo" type="Node2D"]
+script = ExtResource("1_game")
+
+[node name="Skeletons" type="Node2D" parent="."]
+modulate = Color(1, 1, 1, 0.25)
+script = ExtResource("2_draw")
+line_width = 5.0
+show_labels = false
+
+[node name="WireZone" type="Area2D" parent="."]
+
+[node name="BodyColliders" type="Node2D" parent="."]
+script = ExtResource("3_colliders")
+hand_radius_ratio = 0.045
+
+[node name="HUD" type="CanvasLayer" parent="."]
+
+[node name="Title" type="Label" parent="HUD"]
+anchors_preset = 10
+anchor_right = 1.0
+offset_top = 16.0
+offset_bottom = 110.0
+grow_horizontal = 2
+theme_override_colors/font_color = Color(0.92, 0.95, 1, 1)
+theme_override_colors/font_outline_color = Color(0.02, 0.04, 0.06, 1)
+theme_override_constants/outline_size = 8
+theme_override_font_sizes/font_size = 34
+horizontal_alignment = 1
+text = "Taglia il filo"
