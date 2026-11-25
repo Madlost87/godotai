@@ -18,6 +18,8 @@ const BODY_LAYER := 2  # bit del layer 2 "body"
 
 ## Aree sugli effettori (mani o punti di contatto).
 @export var effectors: bool = true
+## Solo questi effettori (es. ["hand_r"] per giocare con la mano destra); vuoto = tutti.
+@export var part_filter: PackedStringArray = []
 ## Avambracci (gomito → mano) come bastoni: per i giochi "braccio come bastone".
 @export var forearms: bool = false
 ## Raggio delle aree sugli effettori, in frazione dell'altezza dello schermo.
@@ -56,6 +58,8 @@ func _physics_process(delta: float) -> void:
 		if effectors:
 			var eff := BodyMetrics.effectors(p)
 			for part: String in eff:
+				if not part_filter.is_empty() and not part_filter.has(part):
+					continue
 				var key := _place_circle(p.id, part, eff[part], h * hand_radius_ratio, delta)
 				alive[key] = true
 		if forearms:

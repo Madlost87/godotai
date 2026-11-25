@@ -52,6 +52,7 @@ func _initialize() -> void:
 	_test_baseline()
 	await _test_gesture(bi)
 	await _test_colliders(bi)
+	await _test_dwell_target(bi)
 	quit(1 if _fail > 0 else 0)
 
 
@@ -169,4 +170,35 @@ func _test_colliders(bi: Node) -> void:
 	await physics_frame
 	_check(bc.get_parts().is_empty(), "giocatore perso: aree rimosse")
 	probe.queue_free()
+	bc.queue_free()
+
+
+func _test_dwell_target(bi: Node) -> void:
+	print("-- DwellTarget")
+	var vp: Vector2 = root.get_visible_rect().size
+	var bc: Node2D = load(CollidersScript).new()
+	root.add_child(bc)
+	var t: Area2D = load("res://core/controllers/dwell_target.gd").new()
+	t.size = vp * 0.3
+	t.position = vp * 0.5
+	t.dwell_time = 0.25
+	var who: Array = []
+	t.selected_by.connect(func(pid: StringName, part: String) -> void: who.append([pid, part]))
+	root.add_child(t)
+	var on_target := [{"id": "p1", "effectors": {"e0": [0.5, 0.5, 1.0]}}, {"id": "p2", "effectors": {"e0": [0.9, 0.9, 1.0]}}]
+	t.accept_players = PackedStringArray(["p2"])
+	await _feed_for(bi, 0.5, on_target)
+	_check(who.is_empty() and t.progress == 0.0, "filtro giocatori: p1 sopra, ma si accetta solo p2")
+	t.accept_players = PackedStringArray()
+	t.accept_parts = PackedStringArray(["hand_r"])
+	await _feed_for(bi, 0.5, on_target)
+	_check(who.is_empty(), "filtro parti: e0 non è hand_r")
+	t.accept_parts = PackedStringArray()
+	t.enabled = false
+	await _feed_for(bi, 0.5, on_target)
+	_check(who.is_empty() and t.progress == 0.0, "disattivato: non reagisce")
+	t.enabled = true
+	await _feed_for(bi, 0.5, on_target)
+	_check(who.size() == 1 and who[0] == [&"p1", "e0"], "attivo e senza filtri: selected_by(p1, e0) una volta sola (%s)" % str(who))
+	t.queue_free()
 	bc.queue_free()

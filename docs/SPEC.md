@@ -409,6 +409,16 @@ dura 60 s e accelera nel tempo. Si parte e si riparte alzando un braccio (azione
 `game_start`, anche con Invio). Punteggio e record della sessione.
 Avvio con la webcam: `./play_body.sh` (tracker in background + gioco).
 
+### 6.6 Gioco "Tris"
+`games/tris/`. Si gioca con la **mano destra**, che segna a turno X e O (da soli o in due
+che si alternano); la sinistra è ignorata (`BodyColliders.part_filter` e
+`DwellTarget.accept_parts` = `["hand_r"]`). Mano ferma su una casella libera per 1,2 s →
+simbolo del turno. Griglia in alto (le mani a riposo non la toccano); "Nuova partita" con
+la mano o Invio; il pulsante non copre mai la griglia (sotto, se lo schermo è stretto).
+Senza capacità `pose` (es. LiDAR) vale qualsiasi effettore. Nel core sono stati aggiunti i
+filtri di `DwellTarget` (`accept_parts`, `accept_players`, `enabled`, segnale
+`selected_by`) e `BodyColliders.part_filter`.
+
 ## 7. Calibrazione
 
 **Procedura** (da ripetere quando si spostano camera o proiettore):
