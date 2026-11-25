@@ -14,7 +14,7 @@
     "assign": "zones",
     "max_players": 2
   },
-  "projection": {"mirror": true},
+  "projection": {"mode": "auto", "uncalibrated": "body_zone", "mirror": true},
   "outputs": [
     {"type": "udp", "host": "127.0.0.1", "port": 4242}
   ]

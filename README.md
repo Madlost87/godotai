@@ -13,7 +13,8 @@ sensore ──► tracker/ (Python, plugin) ──UDP, protocollo v1──► co
 ## Avvio rapido
 
 ```sh
-./play_body.sh --debug     # tracker dalla webcam + menu dei giochi (+ finestra della camera)
+./play_body.sh --debug     # tracker dalla webcam + menu dei giochi a schermo intero (+ finestra della camera)
+./play_body.sh --screen 1  # sul secondo monitor (es. il proiettore); F11 = finestra/schermo intero
 ./play.sh                  # solo Godot: senza tracker, il mouse simula una persona
 ./check.sh                 # tutti i test (Godot headless + pytest del tracker)
 ./new_game.sh <id> "Titolo"   # crea un gioco nuovo dal modello
@@ -51,6 +52,14 @@ I modelli MediaPipe si scaricano da soli al primo avvio in `tracker/models/`.
 - [Nuovo gioco](docs/GUIDA_NUOVO_GIOCO.md): dal modello al menu, con test.
 - [Nuovo sensore](docs/GUIDA_NUOVO_SENSORE.md): LiDAR, camera di profondità o altro, senza rompere i giochi.
 - [Specifica](docs/SPEC.md): architettura, protocollo v1, fasi, prestazioni misurate.
+
+## Corpo e schermo
+
+Senza proiettore (es. webcam del portatile) il tracker costruisce attorno a te una **zona
+di gioco** misurata sulle tue spalle, e quella zona diventa tutto lo schermo: arrivi in
+ogni angolo con movimenti naturali, vicino o lontano dalla camera. Con il proiettore
+calibrato (`tools/calibration`) la mano cade invece esattamente sulla sua ombra.
+`./tracker.sh --mapping …` sceglie la modalità; la finestra `--debug` mostra la zona.
 
 ## Principi
 

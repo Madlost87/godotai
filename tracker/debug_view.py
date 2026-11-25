@@ -26,8 +26,9 @@ WINDOW = "tracker (q / Esc per uscire)"
 
 
 class DebugView:
-    def __init__(self, mirror: bool = True) -> None:
+    def __init__(self, mirror: bool = True, projection: Any = None) -> None:
         self.mirror = mirror  # mostra l'immagine come uno specchio, più naturale per chi si guarda
+        self.projection = projection  # per disegnare la zona di gioco di ogni persona
 
     def show(self, result: FrameResult, packet: dict[str, Any], fps: float) -> bool:
         if result.frame.kind == "image":
@@ -56,6 +57,12 @@ class DebugView:
 
     def _draw_person(self, img: np.ndarray, person: Person, w: int, h: int) -> None:
         color = COLORS.get(person.id or "", UNASSIGNED)
+        zone = self.projection.zone_of(person.id) if self.projection is not None and person.id else None
+        if zone is not None:  # zona di gioco = tutto lo schermo
+            x0, y0, x1, y1 = zone
+            a, b = self._px(x0, y0, w, h), self._px(x1, y1, w, h)
+            cv2.rectangle(img, (min(a[0], b[0]), a[1]), (max(a[0], b[0]), b[1]), color, 2, cv2.LINE_AA)
+            cv2.putText(img, "schermo", (min(a[0], b[0]) + 6, a[1] + 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1, cv2.LINE_AA)
         pts = {n: self._px(p.x, p.y, w, h) for n, p in person.points.items()}
         for a, b in BONES:
             if a in pts and b in pts:

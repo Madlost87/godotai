@@ -31,9 +31,7 @@ var _since_layout: float = LAYOUT_INTERVAL
 
 func _ready() -> void:
 	patterns = load_patterns(ARUCO_FILE)
-	# Schermo intero sul proiettore; "-- --windowed" sulla riga di comando lo evita.
-	if DisplayServer.get_name() != "headless" and not OS.get_cmdline_user_args().has("--windowed"):
-		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
+	# Schermo intero e monitor: li gestisce l'autoload Display (--windowed, --screen=N, F11).
 	get_viewport().size_changed.connect(_on_size_changed)
 	BodyInput.packet_received.connect(_on_packet)
 	_on_size_changed()

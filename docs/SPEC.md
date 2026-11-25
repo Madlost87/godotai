@@ -214,6 +214,31 @@ tracker/                  pacchetto Python (escluso da Godot con .gdignore)
 - `l`/`r` sono la sinistra/destra **della persona**, non dell'immagine.
 - Angoli in gradi. `open`, `pinch`, `mouth_open` vanno da 0 a 1.
 
+### Mappatura sensore → schermo
+Le coordinate dei pacchetti sono già sullo schermo di gioco (0..1). Come ci arrivano lo
+decide la mappatura del tracker (`projection.mode` in config, `--mapping`, plugin in
+`tracker/projection.py: PROJECTIONS`):
+
+| Modalità | Quando | Cosa fa |
+|---|---|---|
+| `homography` | proiettore calibrato | omografia camera → schermo: la mano cade sulla sua ombra |
+| `body_zone` | senza calibrazione (default, es. webcam del portatile) | attorno a ogni giocatore una zona larga `width_sw` (3,2) larghezze spalle, bordo alto `top_sw` (1,1) larghezze spalle sopra le spalle, altezza dalle proporzioni dello schermo: quella zona diventa tutto lo schermo. Stessa posa = stesso punto a qualsiasi distanza dalla camera; la zona segue la persona in ~1 s; le mani a riposo restano sotto lo schermo. Senza spalle: come `mirror` |
+| `mirror` | — | immagine intera a specchio, senza deformazioni (taglia i bordi in più) |
+| `stretch` | — | immagine stirata (vecchio comportamento) |
+| `auto` | default | `homography` se c'è `calibration.json`, altrimenti `uncalibrated` (`body_zone`) |
+
+L'identità (zone p1/p2) usa sempre la mappatura globale, non la zona personale. Le
+proporzioni della camera vengono dai frame, quelle dello schermo da Godot (campo `screen`
+della sessione). La finestra di debug del tracker disegna la zona di ogni giocatore.
+
+### Schermo intero (Godot)
+Il progetto parte a schermo intero (`window/size/mode=3`, stretch `canvas_items` +
+`expand`: le scene si adattano a 16:9, 16:10, 4:3...). L'autoload `Display`
+(`core/app/display.gd`) gestisce `--windowed`, `--screen=N` (es. il proiettore) e
+l'azione `toggle_fullscreen` (F11). `play_body.sh` accetta `--windowed` e `--screen N`.
+Nota: la registrazione video di Godot (`--write-movie`) con schermo HiDPI taglia la parte
+alta dei fotogrammi; per controlli visivi usare una cattura della viewport.
+
 ### Campi extra
 Un pacchetto può avere campi in più, che Godot passa così come sono nel segnale
 `BodyInput.packet_received`. Oggi: `"calibration"` (stato della calibrazione, §7), inviato
@@ -226,7 +251,7 @@ un oggetto per datagramma con un campo `"type"`. Messaggi:
 | `type` | Campi | Uso |
 |--------|-------|-----|
 | `calibration_layout` | `dictionary`, `screen: [w, h]`, `markers: {"0": [[x,y]×4], ...}` (angoli TL, TR, BR, BL normalizzati) | la scena di calibrazione dice dove sono i marker, ogni 0,5 s |
-| `session` | `max_players` (1–8); `requires` (capacità), `game` (id) | il gioco dice di quanti giocatori ha bisogno; ripetuto ogni 1 s finché il gioco è aperto. Il tracker cambia `identity.max_players` e il numero di persone cercate da MediaPipe (`num_poses`), a caldo |
+| `session` | `max_players` (1–8); `requires` (capacità), `game` (id); `screen: [w, h]` (aggiunto da BodyInput: proporzioni per la mappatura) | il gioco dice di quanti giocatori ha bisogno; ripetuto ogni 1 s finché il gioco è aperto. Il tracker cambia `identity.max_players` e il numero di persone cercate da MediaPipe (`num_poses`), a caldo |
 
 In futuro `session` potrà dire anche quali rilevatori servono (mani, faccia, colori).
 Lato tracker ogni rilevatore riceve la sessione in `Detector.apply_session()`.

@@ -46,8 +46,17 @@ DEFAULTS: dict[str, Any] = {
         "hold_time": 0.5,
     },
     "projection": {
-        "mirror": True,  # senza calibrazione: specchia in orizzontale (camera rivolta ai giocatori)
+        # "auto" = proiettore calibrato se c'è calibration.json, altrimenti `uncalibrated`.
+        # Modalità: homography, body_zone, mirror, stretch (vedi projection.py).
+        "mode": "auto",
+        "uncalibrated": "body_zone",
+        "mirror": True,  # camera rivolta ai giocatori: immagine a specchio
         "calibration_file": "calibration.json",
+        "body_zone": {
+            "width_sw": 3.2,  # larghezza della zona, in larghezze delle spalle
+            "top_sw": 1.1,  # bordo alto: quante larghezze spalle sopra le spalle
+            "smoothing": 1.0,  # secondi: quanto lentamente la zona segue la persona
+        },
     },
     "outputs": [
         {"type": "udp", "host": "127.0.0.1", "port": 4242},

@@ -93,7 +93,7 @@ func _draw() -> void:
 	var font := ThemeDB.fallback_font
 	var fs := maxi(int(vp.y * 0.075), 8)
 	draw_string(font, Vector2(0, vp.y * 0.13), "GIOCHI", HORIZONTAL_ALIGNMENT_CENTER, vp.x, fs, TEXT)
-	draw_string(font, Vector2(0, vp.y * 0.18), "Tieni la mano su un gioco per sceglierlo  ·  frecce + Invio  ·  Esc esce",
+	draw_string(font, Vector2(0, vp.y * 0.18), "Tieni la mano su un gioco per sceglierlo  ·  frecce + Invio  ·  F11 schermo intero  ·  Esc esce",
 		HORIZONTAL_ALIGNMENT_CENTER, vp.x, maxi(int(vp.y * 0.03), 8), TEXT_DIM)
 	if games.is_empty():
 		draw_string(font, Vector2(0, vp.y * 0.5), "Nessun gioco. Creane uno con ./new_game.sh <id> \"Titolo\"",

@@ -34,7 +34,9 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
                     help="calibra con la scena Godot res://tools/calibration/calibration.tscn, poi continua a tracciare")
     ap.add_argument("--calibrate-only", action="store_true", help="come --calibrate, ma esce dopo aver salvato")
     ap.add_argument("--calibration-timeout", type=float, default=0.0, help="secondi massimi di calibrazione (0 = nessuno)")
-    ap.add_argument("--uncalibrated", action="store_true", help="ignora calibration.json (coordinate camera)")
+    ap.add_argument("--uncalibrated", action="store_true", help="ignora calibration.json")
+    ap.add_argument("--mapping", choices=["auto", "body_zone", "mirror", "stretch", "homography"],
+                    help="come il sensore si mappa sullo schermo (default da config: auto)")
     ap.add_argument("--list-cameras", action="store_true", help="elenca le camere ed esci")
     ap.add_argument("-v", "--verbose", action="store_true")
     return ap.parse_args(argv)
@@ -98,6 +100,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.uncalibrated:
         cfg["projection"]["calibration_file"] = "/dev/null/nessuna-calibrazione"
+    if args.mapping is not None:
+        cfg["projection"]["mode"] = args.mapping
 
     if args.calibrate or args.calibrate_only:
         from .calibration import run_calibration
@@ -119,7 +123,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.debug:
         from .debug_view import DebugView
 
-        view = DebugView(mirror=bool(cfg["projection"].get("mirror", True)))
+        view = DebugView(mirror=bool(cfg["projection"].get("mirror", True)), projection=pipeline.projection)
 
     log = logging.getLogger("tracker")
     log.info("in esecuzione: invio a %s", ", ".join(f"{o.get('host')}:{o.get('port')}" for o in cfg["outputs"]))

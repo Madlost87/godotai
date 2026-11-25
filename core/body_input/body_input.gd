@@ -108,7 +108,10 @@ func _process(delta: float) -> void:
 		_session_timer -= delta
 		if _session_timer <= 0.0:
 			_session_timer = SESSION_RESEND
-			send_control(_session)
+			var msg := _session.duplicate()
+			var size := _screen_size()
+			msg["screen"] = [size.x, size.y]  # proporzioni dello schermo per la mappatura del tracker
+			send_control(msg)
 	if source == Source.REPLAY:
 		var due := _replay.poll(t)
 		if not due.is_empty():

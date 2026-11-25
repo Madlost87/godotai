@@ -46,16 +46,27 @@ class Pipeline:
 
     def apply_session(self, session: dict[str, Any]) -> bool:
         """Richiesta del gioco (messaggio "session" sul canale di controllo), es.
-        {"max_players": 1}. Restituisce True se qualcosa è cambiato."""
+        {"max_players": 1, "screen": [1152, 648]}. Restituisce True se qualcosa è cambiato."""
+        changed = False
+        scr = session.get("screen")
+        if (isinstance(scr, list) and len(scr) == 2 and all(isinstance(v, (int, float)) for v in scr)
+                and scr[0] > 0 and scr[1] > 0):
+            aspect = float(scr[0]) / float(scr[1])
+            if abs(aspect - self.projection.screen_aspect) > 1e-3:
+                self.projection.set_screen_aspect(aspect)
+                log.info("proporzioni dello schermo dal gioco: %.0f×%.0f (%.2f)", scr[0], scr[1], aspect)
+                changed = True
+        if "max_players" not in session:
+            return changed
         n = session.get("max_players")
         if isinstance(n, float) and n.is_integer():  # da Godot/JSON può arrivare come 1.0
             n = int(n)
         if isinstance(n, bool) or not isinstance(n, int) or not 1 <= n <= 8:
             log.warning("sessione ignorata: max_players non valido (%r)", n)
-            return False
+            return changed
         clean = {"max_players": n}
         if clean == self.session:
-            return False
+            return changed
         self.session = clean
         self.identity.set_max_players(n)
         for det in self.detectors:
@@ -72,11 +83,14 @@ class Pipeline:
         if frame is None:
             return None
         result = FrameResult(frame)
+        if frame.kind == "image":
+            self.projection.set_camera_size(*frame.size)
         for det in self.detectors:
             t0 = time.perf_counter()
             det.process(frame, result)
             result.timings[type(det).__name__] = (time.perf_counter() - t0) * 1000
         self.identity.resolve(result)
+        self.projection.update(result)  # es. zone di gioco che seguono le persone
         self._update_fps(frame.t)
         packet = build_packet(result, self.projection, self.fps, self.capabilities)
         for sink in self.sinks:

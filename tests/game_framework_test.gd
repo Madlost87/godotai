@@ -108,6 +108,18 @@ func _test_launcher_and_body_game() -> void:
 	_check(launcher.games.size() == registry.list_games().size() and launcher.cards.size() == launcher.games.size(),
 		"una scheda per ogni gioco (%d)" % launcher.games.size())
 	_check(_bi.get_session().get("game") == "launcher", "il menu chiede la sua sessione al tracker")
+	var rx := PacketPeerUDP.new()
+	rx.bind(42430, "127.0.0.1")
+	var sent: Variant = null
+	for i in 120:
+		await process_frame
+		if rx.get_available_packet_count() > 0:
+			sent = JSON.parse_string(rx.get_packet().get_string_from_utf8())
+			break
+	rx.close()
+	var vp: Vector2 = root.get_visible_rect().size
+	_check(sent is Dictionary and sent.get("screen") is Array and is_equal_approx(float(sent["screen"][0]) / float(sent["screen"][1]), vp.x / vp.y),
+		"la sessione porta le proporzioni dello schermo (%s)" % str(sent.get("screen") if sent is Dictionary else null))
 
 	# Con un sensore che ha solo la pose (niente effettori), il menu segnala cosa manca.
 	await _feed([{"id": "p1", "pose": {"nose": [0.5, 0.2, 1.0]}}], 0.1, ["pose"])

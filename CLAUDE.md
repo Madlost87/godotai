@@ -8,10 +8,10 @@ cambiano le decisioni). Guide: `docs/GUIDA_NUOVO_GIOCO.md`, `docs/GUIDA_NUOVO_SE
 
 ## Comandi
 - `./check.sh` — verifica completa: import Godot, avvio del menu, test Godot (`tests/`, `games/*/tests/`, `tools/*/tests/`, `examples/*/tests/`, 120 s max ciascuno), pytest del tracker. Eseguilo dopo ogni modifica; deve essere verde prima di dire che hai finito.
-- `./play_body.sh [res://scena] [opzioni tracker]` — tracker dalla webcam + menu dei giochi (o la scena indicata). `--debug` mostra la camera. Lancialo in background quando l'utente vuole giocare.
+- `./play_body.sh [res://scena] [--windowed] [--screen N] [opzioni tracker]` — tracker dalla webcam + menu dei giochi (o la scena indicata), a schermo intero. `--debug` mostra la camera. Lancialo in background quando l'utente vuole giocare. F11 in gioco: finestra/schermo intero.
 - `./play.sh [res://scena]` — solo Godot (senza tracker il mouse simula una persona).
 - `./new_game.sh <id> "Titolo"` — crea `games/<id>/` dal modello `games/_template/`.
-- `./tracker.sh` — tracker: `--debug`, `--synthetic N [--synthetic-kind contacts]` (persone finte / finto LiDAR), `--source`, `--detectors`, `--list-plugins`, `--calibrate`, `--help`. Ambiente in `tracker/.venv` (Python 3.12, `uv`).
+- `./tracker.sh` — tracker: `--debug`, `--mapping body_zone|mirror|stretch|homography|auto`, `--synthetic N [--synthetic-kind contacts]` (persone finte / finto LiDAR), `--source`, `--detectors`, `--list-plugins`, `--calibrate`, `--help`. Ambiente in `tracker/.venv` (Python 3.12, `uv`).
 - Calibrazione: `./play.sh res://tools/calibration/calibration.tscn` (sul proiettore; `-- --windowed` in finestra) + `./tracker.sh --calibrate --debug`.
 
 ## Struttura
@@ -24,6 +24,7 @@ cambiano le decisioni). Guide: `docs/GUIDA_NUOVO_GIOCO.md`, `docs/GUIDA_NUOVO_SE
 - `addons/godot_ai/` — plugin Godot AI 4.4.2: non modificarlo.
 
 ## Regole
+- **Schermo**: i giochi disegnano in proporzione alla viewport (schermo intero, qualsiasi rapporto). La corrispondenza corpo → schermo è del tracker (mappatura `body_zone` senza proiettore, `homography` con il proiettore calibrato), non dei giochi. Per controlli visivi usa una cattura della viewport (`get_viewport().get_texture().get_image()`), non `--write-movie` (su schermi HiDPI taglia l'alto).
 - **Giochi indipendenti dal sensore**: usano capacità (`pose`, `hands`, `face`, `markers`, `effectors`) dichiarate in `game.json` ed effettori (`BodyMetrics.effectors`, `BodyColliders`), non dettagli del tracker. Quando basta "toccare", usa gli effettori.
 - **Gioco nuovo**: sempre con `./new_game.sh`, su un ramo `gioco/<id>`. Script principale `extends BodyGame`, inizializzazione in `_game_ready()`. Niente `class_name` nei giochi; ciò che serve a più giochi va in `core/` con un test.
 - **Sensore nuovo**: plugin in `tracker/sources/` + `tracker/detectors/` (con `produces` / `accepts` / `provides`), oppure un altro programma che parla il protocollo v1. Non cambiare il protocollo senza aggiornare `protocol.py`, `validate_packet`, `PlayerState` e la spec.
