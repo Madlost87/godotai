@@ -21,6 +21,12 @@ signal progress_changed(progress: float)
 @export var accept_parts: PackedStringArray = []
 ## Solo questi giocatori (es. ["p1"]); vuoto = tutti.
 @export var accept_players: PackedStringArray = []
+## Bersagli con lo stesso gruppo si escludono: una mano conta solo per il bersaglio del
+## gruppo più vicino al suo centro, anche se ne tocca più di uno (es. a cavallo di due
+## caselle di una griglia). Vuoto = nessuna esclusione.
+@export var exclusive_group: StringName = &""
+
+static var _groups: Dictionary = {}  # StringName -> Array (DwellTarget)
 
 var progress: float = 0.0
 var _inside: Dictionary = {}  # Area2D -> true
@@ -42,6 +48,20 @@ func _ready() -> void:
 	area_exited.connect(func(a: Area2D) -> void: _inside.erase(a))
 
 
+func _enter_tree() -> void:
+	if exclusive_group != &"":
+		if not _groups.has(exclusive_group):
+			_groups[exclusive_group] = []
+		_groups[exclusive_group].append(self)
+
+
+func _exit_tree() -> void:
+	if _groups.has(exclusive_group):
+		_groups[exclusive_group].erase(self)
+		if _groups[exclusive_group].is_empty():
+			_groups.erase(exclusive_group)
+
+
 ## Cambia la dimensione anche dopo che il nodo è nella scena.
 func set_box_size(v: Vector2) -> void:
 	size = v
@@ -59,9 +79,25 @@ func hovering_parts() -> Array[Area2D]:
 	for a: Area2D in _inside.keys():
 		if not is_instance_valid(a):
 			_inside.erase(a)
-		elif accepts(a):
+		elif accepts(a) and _owns(a):
 			out.append(a)
 	return out
+
+
+## Con un gruppo esclusivo: questa mano "punta" proprio questo bersaglio?
+## (è il più vicino al centro della mano tra quelli del gruppo che la stanno toccando;
+## conta anche se è disattivato: puntare una casella occupata non segna la vicina)
+func _owns(a: Area2D) -> bool:
+	if exclusive_group == &"" or not _groups.has(exclusive_group):
+		return true
+	var my_d := a.global_position.distance_squared_to(global_position)
+	for t: DwellTarget in _groups[exclusive_group]:
+		if t == self or not is_instance_valid(t) or not t._inside.has(a) or not t.accepts(a):
+			continue
+		var d := a.global_position.distance_squared_to(t.global_position)
+		if d < my_d or (d == my_d and t.get_instance_id() < get_instance_id()):
+			return false
+	return true
 
 
 func accepts(a: Area2D) -> bool:

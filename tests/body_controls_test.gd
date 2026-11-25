@@ -201,4 +201,27 @@ func _test_dwell_target(bi: Node) -> void:
 	await _feed_for(bi, 0.5, on_target)
 	_check(who.size() == 1 and who[0] == [&"p1", "e0"], "attivo e senza filtri: selected_by(p1, e0) una volta sola (%s)" % str(who))
 	t.queue_free()
+	# Due bersagli che la stessa mano tocca entrambi: senza gruppo scattano tutti e due,
+	# con un gruppo esclusivo solo il più vicino al centro della mano.
+	var script: GDScript = load("res://core/controllers/dwell_target.gd")
+	for group: StringName in [&"", &"griglia"]:
+		var fired: Array[String] = []
+		var pair: Array[Area2D] = []
+		for k in 2:
+			var d: Area2D = script.new()
+			d.size = vp * 0.3
+			d.position = vp * Vector2(0.4 + 0.25 * k, 0.5)  # si sovrappongono al centro
+			d.dwell_time = 0.25
+			d.exclusive_group = group
+			d.selected.connect(func() -> void: fired.append("AB"[k]))
+			root.add_child(d)
+			pair.append(d)
+		await _feed_for(bi, 0.6, [{"id": "p1", "effectors": {"e0": [0.5, 0.5, 1.0]}}])  # più vicina ad A
+		if group == &"":
+			_check(fired.size() == 2, "senza gruppo: la mano su due bersagli li attiva entrambi (%s)" % str(fired))
+		else:
+			_check(fired == ["A"], "gruppo esclusivo: solo il più vicino (%s)" % str(fired))
+		for d in pair:
+			d.queue_free()
+		await process_frame
 	bc.queue_free()

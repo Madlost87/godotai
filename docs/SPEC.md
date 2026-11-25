@@ -418,6 +418,9 @@ la mano o Invio; il pulsante non copre mai la griglia (sotto, se lo schermo è s
 Senza capacità `pose` (es. LiDAR) vale qualsiasi effettore. Nel core sono stati aggiunti i
 filtri di `DwellTarget` (`accept_parts`, `accept_players`, `enabled`, segnale
 `selected_by`) e `BodyColliders.part_filter`.
+`DwellTarget.exclusive_group`: i bersagli dello stesso gruppo si escludono, una mano
+conta solo per quello più vicino al suo centro (anche se occupato). Evita la doppia
+selezione con la mano a cavallo di due caselle; usato in Tris e nel menu.
 
 ## 7. Calibrazione
 

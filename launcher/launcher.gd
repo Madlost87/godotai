@@ -26,6 +26,7 @@ func _ready() -> void:
 	for m in games:
 		var t := DwellTarget.new()
 		t.name = "Card_" + m.id
+		t.exclusive_group = &"launcher_cards"
 		t.selected.connect(launch.bind(m))
 		cards_root.add_child(t)
 		cards.append(t)

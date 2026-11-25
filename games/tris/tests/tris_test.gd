@@ -98,7 +98,18 @@ func _test_right_hand_plays() -> void:
 		g.place(i)
 	_check(g.state == 1 and g.winner == 0 and g.status_label.text.contains("Pareggio"), "pareggio")
 	g.new_game()
-	await _feed_hands(null, null, 0.4)  # il giocatore scade
+	# Mano a cavallo tra la casella 3 e la 4, un po' più verso la 4: si segna solo la 4.
+	var a := _cell(3)
+	var c := _cell(4)
+	var straddle := a.lerp(c, 0.55)
+	var hand_r: float = g.colliders.hand_radius_ratio * _vp.y
+	_check((c - straddle).x * _vp.x < hand_r + g.cell_rect(4).size.x * 0.45 and (straddle - a).x * _vp.x < hand_r + g.cell_rect(3).size.x * 0.45,
+		"(la mano tocca davvero entrambe le caselle)")
+	await _feed_hands(straddle, away, DWELL * 6.0)
+	_check(g.board[4] == 1 and g.board[3] == 0, "a cavallo di due caselle: si segna solo la più vicina (4)")
+	_check(g.board.count(1) + g.board.count(2) == 1, "e una sola: restando lì non si segna l'altra")
+	await _feed_hands(null, null, 0.4)  # la mano esce dalla griglia (il giocatore scade)
+	g.new_game()
 
 
 func _test_contacts_sensor() -> void:

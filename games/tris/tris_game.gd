@@ -44,6 +44,7 @@ func _game_ready() -> void:
 		var c := DwellTarget.new()
 		c.name = "Cell%d" % i
 		c.dwell_time = dwell_time
+		c.exclusive_group = &"tris_cells"  # a cavallo di due caselle conta solo la più vicina
 		c.selected.connect(_on_cell_selected.bind(i))
 		cells_root.add_child(c)
 		cells.append(c)
