@@ -1,12 +1,14 @@
 class_name BodyColliders
 extends Node2D
-## Mette un'Area2D sulle parti del corpo di ogni giocatore di BodyInput, così i giochi
-## usano le normali collisioni di Godot senza sapere niente del tracker.
+## Mette un'Area2D sugli effettori (BodyMetrics.effectors: le mani, o i punti di contatto
+## di sensori senza scheletro) e, a richiesta, sugli avambracci di ogni giocatore, così i
+## giochi usano le normali collisioni di Godot senza sapere niente del sensore.
 ## Le aree stanno sul layer fisico "body" (layer 2): gli oggetti di gioco che devono
 ## sentirle mettono quel layer nella loro collision_mask.
 ##
 ## Ogni area ha i metadati "player_id" (StringName), "part" ("hand_l", "forearm_r"...)
-## e "velocity" (Vector2, pixel/s). Usa BodyColliders.owner_of(area) per sapere di chi è.
+## e "velocity" (Vector2, pixel/s). "part" è il nome dell'effettore: "hand_l"/"hand_r"
+## con la pose, "e0", "e1"... con sensori a contatto. Usa BodyColliders.owner_of(area) per sapere di chi è.
 ## Il nodo va lasciato all'origine (posizioni in pixel della viewport).
 
 signal part_added(area: Area2D)
@@ -14,10 +16,11 @@ signal part_removed(area: Area2D)
 
 const BODY_LAYER := 2  # bit del layer 2 "body"
 
-@export var hands: bool = true
+## Aree sugli effettori (mani o punti di contatto).
+@export var effectors: bool = true
 ## Avambracci (gomito → mano) come bastoni: per i giochi "braccio come bastone".
 @export var forearms: bool = false
-## Raggio delle mani in frazione dell'altezza dello schermo.
+## Raggio delle aree sugli effettori, in frazione dell'altezza dello schermo.
 @export var hand_radius_ratio: float = 0.06
 @export var forearm_thickness_ratio: float = 0.035
 @export_flags_2d_physics var layer: int = BODY_LAYER
@@ -50,11 +53,11 @@ func _physics_process(delta: float) -> void:
 	var h := get_viewport_rect().size.y
 	var alive := {}
 	for p in BodyInput.get_players():
-		if hands:
-			for side in ["l", "r"]:
-				if BodyMetrics.has_hand(p, side):
-					var key := _place_circle(p.id, "hand_" + side, BodyMetrics.hand_center(p, side), h * hand_radius_ratio, delta)
-					alive[key] = true
+		if effectors:
+			var eff := BodyMetrics.effectors(p)
+			for part: String in eff:
+				var key := _place_circle(p.id, part, eff[part], h * hand_radius_ratio, delta)
+				alive[key] = true
 		if forearms:
 			for side in ["l", "r"]:
 				var elbow := StringName("elbow_" + side)

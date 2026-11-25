@@ -6,7 +6,7 @@ import logging
 import time
 from typing import Any, Callable
 
-from .capture import SOURCES, FrameSource
+from .sources import SOURCES, FrameSource
 from .control import ControlChannel
 from .detectors import DETECTORS, Detector
 from .identity import IdentityResolver
@@ -40,6 +40,9 @@ class Pipeline:
         self.session: dict[str, Any] = {}
         self.fps = 0.0
         self._last_t: float | None = None
+        check_compatibility(source, detectors)
+        # Capacità annunciate ai giochi (campo "caps" dei pacchetti).
+        self.capabilities: list[str] = sorted({c for d in detectors for c in d.provides})
 
     def apply_session(self, session: dict[str, Any]) -> bool:
         """Richiesta del gioco (messaggio "session" sul canale di controllo), es.
@@ -75,7 +78,7 @@ class Pipeline:
             result.timings[type(det).__name__] = (time.perf_counter() - t0) * 1000
         self.identity.resolve(result)
         self._update_fps(frame.t)
-        packet = build_packet(result, self.projection, self.fps)
+        packet = build_packet(result, self.projection, self.fps, self.capabilities)
         for sink in self.sinks:
             sink.send(packet)
         return result, packet
@@ -107,6 +110,18 @@ class Pipeline:
         if self.control is not None:
             self.control.close()
         self.source.close()
+
+
+def check_compatibility(source: Any, detectors: list[Detector]) -> None:
+    """Errore chiaro se un rilevatore non sa leggere i dati della sorgente
+    (es. la pose di MediaPipe con un LiDAR che produce scansioni)."""
+    produces = getattr(source, "produces", "image")
+    for det in detectors:
+        if "*" not in det.accepts and produces not in det.accepts:
+            raise ValueError(
+                f"il rilevatore {type(det).__name__} accetta {list(det.accepts)}, "
+                f"ma la sorgente {type(source).__name__} produce '{produces}'"
+            )
 
 
 def build_pipeline(cfg: dict[str, Any]) -> Pipeline:

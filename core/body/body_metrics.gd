@@ -46,6 +46,23 @@ static func hand_center(p: PlayerState, side: String) -> Vector2:
 	return p.point(hw) if p.has_point(hw) else Vector2.ZERO
 
 
+## Punti che possono "toccare" gli oggetti di gioco, per nome → posizione in pixel.
+## Se il sensore manda effettori espliciti (es. tocchi di un LiDAR) usa quelli
+## ("e0", "e1"...); altrimenti le mani ("hand_l", "hand_r"). I giochi che usano gli
+## effettori funzionano con qualsiasi sensore che abbia la capacità "effectors".
+static func effectors(p: PlayerState) -> Dictionary:
+	var out := {}
+	for n: StringName in p.point_names():
+		var s := String(n)
+		if s.begins_with("effector."):
+			out[s.trim_prefix("effector.")] = p.point(n)
+	if out.is_empty():
+		for side in ["l", "r"]:
+			if has_hand(p, side):
+				out["hand_" + side] = hand_center(p, side)
+	return out
+
+
 ## Inclinazione del busto in radianti: 0 = dritto, positivo = verso destra sullo schermo.
 ## Usa spalle → anche se ci sono, altrimenti la linea delle spalle.
 static func torso_lean(p: PlayerState) -> float:

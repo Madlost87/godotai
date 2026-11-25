@@ -55,6 +55,7 @@ DEFAULTS: dict[str, Any] = {
     # Canale Godot → tracker (layout di calibrazione, in futuro altri comandi).
     "control": {"host": "127.0.0.1", "port": 4243},
     "calibration": {
+        "method": "aruco",  # plugin in calibration.CALIBRATION_METHODS
         "frames_needed": 15,  # frame consecutivi con tutti i 4 marker visibili
         "max_error": 0.02,  # errore RMS massimo accettato (frazione dello schermo)
     },

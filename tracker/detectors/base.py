@@ -13,6 +13,12 @@ class Detector(ABC):
     o completa quelle esistenti (mani, faccia), o aggiunge marker (colori).
     I rilevatori girano nell'ordine di config.json."""
 
+    # Tipi di Frame.data accettati ("*" = qualsiasi). Vedi FrameSource.produces.
+    accepts: tuple[str, ...] = ("image",)
+    # Capacità che il rilevatore fornisce ai giochi: "pose", "hands", "face",
+    # "markers", "effectors". Finiscono nel campo "caps" dei pacchetti.
+    provides: tuple[str, ...] = ()
+
     def __init__(self, params: dict[str, Any]) -> None:
         self.params = params
 

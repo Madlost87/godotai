@@ -30,7 +30,10 @@ class DebugView:
         self.mirror = mirror  # mostra l'immagine come uno specchio, più naturale per chi si guarda
 
     def show(self, result: FrameResult, packet: dict[str, Any], fps: float) -> bool:
-        img = result.frame.image
+        if result.frame.kind == "image":
+            img = result.frame.image
+        else:  # sensore senza immagine (es. LiDAR): sfondo nero, si vedono solo i dati
+            img = np.zeros((480, 640, 3), np.uint8)
         if self.mirror:
             img = cv2.flip(img, 1)
         img = np.ascontiguousarray(img)
@@ -59,6 +62,8 @@ class DebugView:
                 cv2.line(img, pts[a], pts[b], color, 3, cv2.LINE_AA)
         for n, p in pts.items():
             cv2.circle(img, p, 6 if n.endswith("_c") else 4, (255, 255, 255) if n.endswith("_c") else color, -1)
+        for e in person.effectors.values():
+            cv2.circle(img, self._px(e.x, e.y, w, h), 12, color, 3, cv2.LINE_AA)
         ref = person.reference()
         if ref is not None:
             x, y = self._px(ref.x, ref.y, w, h)

@@ -1,8 +1,14 @@
 # Spec — Input corporeo per giochi proiettati
 
-Versione 0.6 — 2026-11-25 — stato: **fase 1 completata; fasi 2, 3 e 4 implementate**, da
+Versione 0.7 — 2026-11-25 — stato: **fase 1 completata; fasi 2, 3 e 4 implementate**, da
 validare con persone, camera e proiettore reali (vedi §10). Per ora si prova con la webcam
 del portatile, senza proiettore (coordinate camera a specchio, senza calibrazione).
+
+Novità della 0.7: repo predisposta per molti giochi e per cambiare sensore (§4.1):
+framework `core/`, giochi in `games/<id>/` con `game.json`, menu `launcher/`,
+`new_game.sh`; tracker a plugin con `produces`/`accepts`/`provides`; nel protocollo
+**effettori** e **capacità** (§5). Guide in `docs/GUIDA_NUOVO_GIOCO.md` e
+`docs/GUIDA_NUOVO_SENSORE.md`.
 
 Hardware: una webcam HP FHD Camera. Linux la espone come `/dev/video0` (immagini) e
 `/dev/video1` (solo metadati UVC); il tracker sceglie da solo il nodo che dà immagini.
@@ -94,55 +100,67 @@ Gli strati 1–6 sono comuni a tutti i giochi. Gli strati 7–8 sono dove si pro
 
 ### Struttura dei file
 ```
-tracker.sh                avvio del tracker (usa tracker/.venv): ./tracker.sh --help
+README.md, CLAUDE.md      panoramica; istruzioni per Claude
+check.sh                  tutti i test (Godot headless + pytest)
+play.sh, play_body.sh     avvio (solo Godot / tracker + menu)
+tracker.sh, new_game.sh   avvio del tracker; crea un gioco dal modello
+core/                     framework Godot riusabile
+  body_input/             BodyInput (autoload), PlayerState, OneEuroFilter, sources/ (udp, simulatore, replay)
+  body/                   BodyMetrics (+ Baseline), BodyColliders, BodyDebugDraw
+  controllers/            GestureController, DwellTarget
+  game/                   BodyGame (base dei giochi), GameManifest (game.json), GameRegistry
+games/<id>/               un gioco: game.json, scena, script (extends BodyGame), tests/
+games/_template/          modello per new_game.sh (testato come un gioco)
+launcher/                 menu dei giochi (scena principale)
+tools/calibration/        scena di calibrazione (ArUco)
+tools/body_demo/          demo: tutti i giocatori su sfondo scuro
+examples/counter/         demo iniziale (contatore)
+data/aruco_4x4_50.json    pattern dei marker, letti da Godot e dai test Python
+recordings/*.jsonl        sessioni registrate (session_* non versionate)
+tests/                    test del core e di integrazione (anche Python ↔ Godot)
 tracker/                  pacchetto Python (escluso da Godot con .gdignore)
-  .venv/                  Python 3.12 (uv venv --python 3.12 tracker/.venv)
-  requirements.txt        versioni fissate
-  __main__.py             riga di comando
-  config.py               default + config.json + validazione
-  config.json             camera, rilevatori attivi, identità, proiezione, uscite
-  registry.py             registro nome → classe (base della modularità)
-  structs.py              Frame, Point, Person, Hand, Face, Marker, FrameResult
-  capture.py              sorgenti: "camera" (thread, ultimo frame), "video" (file)
-  detectors/base.py       interfaccia Detector + registro
-  detectors/pose.py       F2 ✅  ("pose", MediaPipe Pose Landmarker)
-  detectors/color.py      F1     (fase 5)
-  detectors/hands.py      F3     (fase 6)
-  detectors/face.py       F4     (fase 6)
-  projection.py           F6: CameraProjection / HomographyProjection
-  identity.py             F5, F13, F14: tracciamento + assegnatori "zones"/"arrival"
-  protocol.py             unico punto che conosce il formato v1
+  __main__.py             riga di comando (--list-plugins, --source, --detectors, ...)
+  config.py, config.json  default + configurazione
+  registry.py, plugins.py registri nome → classe; import automatico dei plugin
+  structs.py              Frame (data + kind), Point, Person (points, effectors, ...), FrameResult
+  sources/                plugin sorgenti: camera, video, synthetic (FrameSource.produces)
+  detectors/              plugin rilevatori: pose, synthetic, synthetic_contacts (accepts / provides)
+  identity.py             tracciamento + assegnatori "zones"/"arrival"
+  projection.py           CameraProjection / HomographyProjection
+  protocol.py             formato v1 + validate_packet (il contratto)
   sinks.py                uscite: "udp"
-  pipeline.py             assemblaggio ed esecuzione
+  control.py              canale Godot → tracker
+  calibration.py          metodi di calibrazione (CALIBRATION_METHODS: "aruco")
+  pipeline.py             assemblaggio, compatibilità, sessione, capacità
   debug_view.py           finestra OpenCV (--debug)
-  synthetic.py            sorgente + rilevatore finti (--synthetic), per test e prove
-  models.py, models/      modelli MediaPipe .task (scaricati se mancano)
-  calibration.py          F6 ✅ rilevamento ArUco, omografia, ciclo --calibrate
-  control.py              canale di controllo Godot → tracker (§5.1)
-  tune_colors.py          slider HSV → config.json (fase 5)
-  calibration.json        omografia salvata (creata da --calibrate, non versionata)
-  tests/                  pytest (girano in ./check.sh)
-data/
-  aruco_4x4_50.json       pattern dei marker 0–3, letti sia da Godot sia dai test Python
-scripts/body_input/
-  body_input.gd           autoload BodyInput (strati 5–6)
-  player_state.gd         stato filtrato di un giocatore
-  one_euro_filter.gd
-  body_debug_draw.gd      BodyDebugDraw: disegna tutti i giocatori (overlay, F11)
-  sources/udp_source.gd · simulator_source.gd · replay_source.gd
-  body_metrics.gd         BodyMetrics + BodyMetrics.Baseline (F15)
-  body_colliders.gd       BodyColliders: Area2D su mani/avambracci (layer "body")
-  controllers/gesture_controller.gd   GestureController: gesto → azione Input Map
-scripts/games/bubbles/    bubbles_game.gd, bubble.gd (minigioco "Bolle")
-scripts/calibration.gd    scena di calibrazione
-scenes/
-  calibration.tscn        proietta i 4 ArUco + vista di verifica
-  body_demo.tscn          demo: tutti i giocatori su sfondo scuro
-  bubbles.tscn            minigioco "Bolle"
-play_body.sh              tracker (webcam) + gioco insieme
-recordings/*.jsonl        sessioni registrate (una riga = un pacchetto)
-tests/                    test headless Godot (incluso end-to-end con il tracker sintetico)
+  models.py, models/      modelli MediaPipe (scaricati se mancano)
+  tests/                  pytest
 ```
+
+### 4.1 Estendibilità: giochi e sensori
+
+```
+ sensore A ─┐                                        ┌─ games/bubbles
+ sensore B ─┼─► plugin del tracker ─► protocollo v1 ─┼─ games/<nuovo>
+ altro prog.┘   (o qualsiasi programma   (contratto) └─ launcher
+                 che parla il v1)
+```
+
+- **Il protocollo v1 è il confine.** A sinistra si cambia hardware, a destra si fanno giochi;
+  nessuno dei due lati conosce i dettagli dell'altro.
+- **Capacità**: il tracker annuncia in ogni pacchetto cosa sa fare (`caps`: `pose`,
+  `hands`, `face`, `markers`, `effectors`), unione dei `provides` dei rilevatori attivi.
+  Ogni gioco dichiara in `game.json` cosa richiede (`requires`) e cosa usa se c'è
+  (`optional`); il menu segnala le capacità mancanti.
+- **Effettori**: i punti che possono "toccare" i giochi. Da un sensore senza scheletro
+  arrivano espliciti (`effectors`); con la pose Godot usa le mani
+  (`BodyMetrics.effectors`). `BodyColliders` mette le aree sugli effettori: i giochi
+  basati sul tocco funzionano con qualsiasi sensore.
+- **Tracker a plugin**: `FrameSource.produces` (tipo di dato: "image", "scan2d",
+  "depth"...), `Detector.accepts` / `provides`. La pipeline rifiuta subito combinazioni
+  incompatibili. Sorgenti e rilevatori si registrano da soli (`plugins.py`).
+- **Giochi a cartella**: `games/<id>/` + `game.json`; `GameRegistry` li trova, il menu li
+  mostra, `BodyGame` manda la sessione al tracker e gestisce l'uscita.
 
 ## 5. Protocollo tracker → Godot (v1)
 
@@ -162,6 +180,7 @@ tests/                    test headless Godot (incluso end-to-end con il tracker
   "t": 12.345,
   "space": "screen",
   "fps": 31.2,
+  "caps": ["effectors", "face", "hands", "markers", "pose"],
   "players": [
     {
       "id": "red",
@@ -184,6 +203,12 @@ tests/                    test headless Godot (incluso end-to-end con il tracker
 }
 ```
 
+- `caps` (facoltativo): capacità del sensore (§4.1). Se manca, Godot le deduce dai campi
+  presenti.
+- `effectors` (facoltativo, per giocatore): `{"nome": [x, y, c]}`, punti che possono
+  toccare, per sensori senza scheletro. Esempio (un LiDAR):
+  `{"id": "p1", "effectors": {"e0": [0.42, 0.61, 0.9]}}`.
+- Il contratto completo è `tracker/protocol.py: validate_packet()`.
 - `id`: `"red"`, `"blue"`, `"yellow"` se c'è un marker associato; altrimenti `"p1"`,
   `"p2"`, `"p3"` (stabili, vedi sotto). Il campo `marker` è presente solo se c'è un marker.
 - `l`/`r` sono la sinistra/destra **della persona**, non dell'immagine.
@@ -201,7 +226,7 @@ un oggetto per datagramma con un campo `"type"`. Messaggi:
 | `type` | Campi | Uso |
 |--------|-------|-----|
 | `calibration_layout` | `dictionary`, `screen: [w, h]`, `markers: {"0": [[x,y]×4], ...}` (angoli TL, TR, BR, BL normalizzati) | la scena di calibrazione dice dove sono i marker, ogni 0,5 s |
-| `session` | `max_players` (1–8) | il gioco dice di quanti giocatori ha bisogno; ripetuto ogni 1 s finché il gioco è aperto. Il tracker cambia `identity.max_players` e il numero di persone cercate da MediaPipe (`num_poses`), a caldo |
+| `session` | `max_players` (1–8); `requires` (capacità), `game` (id) | il gioco dice di quanti giocatori ha bisogno; ripetuto ogni 1 s finché il gioco è aperto. Il tracker cambia `identity.max_players` e il numero di persone cercate da MediaPipe (`num_poses`), a caldo |
 
 In futuro `session` potrà dire anche quali rilevatori servono (mani, faccia, colori).
 Lato tracker ogni rilevatore riceve la sessione in `Detector.apply_session()`.
@@ -349,7 +374,21 @@ l'autoload `BodyInput`, quindi le classi che lo usano (`GestureController`,
 `BodyColliders`, `Bubble`, `BodyDebugDraw`) vanno caricate con `load()` e non citate per
 nome. La viewport headless è 64×64 e non si ridimensiona: i test lavorano in proporzione.
 
-### 6.4 Minigioco "Bolle" (fase 4)
+### 6.4 Framework dei giochi
+- **`games/<id>/game.json`** (`GameManifest`): `id` (= nome cartella), `title`,
+  `description`, `controls`, `scene`, `players {min, max}`, `requires`, `optional`.
+  Validato all'avvio e da `tests/game_framework_test.gd`.
+- **`BodyGame`** (base di ogni gioco): legge il manifest, manda la sessione al tracker
+  (`{"max_players", "requires", "game"}`), la ritira all'uscita, `game_exit` (Esc) torna
+  al menu. I giochi implementano `_game_ready()`.
+- **`GameRegistry`**: trova i giochi in `games/` (ignora le cartelle che iniziano con `_`).
+- **`launcher/`** (scena principale): una scheda per gioco; si sceglie tenendo ferma la
+  mano su una scheda (`DwellTarget`) o con frecce + Invio; segnala capacità mancanti.
+- **`DwellTarget`** (Area2D): "clic" tenendo un effettore fermo per `dwell_time` secondi.
+- **`new_game.sh <id> "Titolo"`**: copia `games/_template` (gioco minimo funzionante con
+  test) e rinomina tutto. Procedura completa in `docs/GUIDA_NUOVO_GIOCO.md`.
+
+### 6.5 Minigioco "Bolle" (fase 4)
 `scenes/bubbles.tscn`, script in `scripts/games/bubbles/`. **Un giocatore**: con la webcam
 del portatile bisogna stare vicini per vedere il busto, e in due non ci si sta. All'avvio
 il gioco chiede al tracker `{"max_players": 1}` (§5.1). Le bolle salgono dal basso

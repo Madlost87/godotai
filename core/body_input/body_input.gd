@@ -10,6 +10,8 @@ signal frame_updated
 signal packet_received(packet: Dictionary)
 signal source_changed(source_name: String)
 signal replay_finished
+## Le capacità del sensore sono cambiate (es. collegato un tracker diverso).
+signal capabilities_changed(capabilities: PackedStringArray)
 
 enum Source { UDP, SIMULATOR, REPLAY }
 
@@ -33,6 +35,9 @@ var filter_beta: float = 10.0
 var control_port: int = DEFAULT_CONTROL_PORT
 
 var source: Source = Source.UDP
+## Cosa sa fare il sensore collegato: "pose", "hands", "face", "markers", "effectors".
+## Dal campo "caps" dei pacchetti, o dedotte dai campi presenti se manca.
+var capabilities: PackedStringArray = []
 var tracker_fps: float = 0.0
 var last_packet_time: float = -1.0
 
@@ -132,6 +137,8 @@ func ingest_packet(data: Variant, t: float = -1.0) -> bool:
 	var fps: Variant = d.get("fps")
 	if fps is float or fps is int:
 		tracker_fps = float(fps)
+	var caps: Variant = d.get("caps")
+	_set_capabilities(PackedStringArray(caps) if caps is Array else _infer_capabilities(players))
 
 	var size := _screen_size()
 	for entry: Variant in players:
@@ -154,6 +161,40 @@ func ingest_packet(data: Variant, t: float = -1.0) -> bool:
 	packet_received.emit(d)
 	frame_updated.emit()
 	return true
+
+
+func has_capability(capability: String) -> bool:
+	return capabilities.has(capability)
+
+
+func _set_capabilities(caps: PackedStringArray) -> void:
+	caps.sort()
+	if caps != capabilities:
+		capabilities = caps
+		capabilities_changed.emit(capabilities)
+
+
+## Per pacchetti senza "caps" (vecchie registrazioni, altri tracker): deduce dai campi.
+static func _infer_capabilities(players: Array) -> PackedStringArray:
+	var found := {}
+	for pl: Variant in players:
+		if not (pl is Dictionary):
+			continue
+		if pl.has("pose"):
+			found["pose"] = true
+			found["effectors"] = true
+		if pl.has("effectors"):
+			found["effectors"] = true
+		if pl.has("hands"):
+			found["hands"] = true
+			found["effectors"] = true
+		if pl.has("face"):
+			found["face"] = true
+		if pl.has("marker"):
+			found["markers"] = true
+	if found.is_empty():
+		return PackedStringArray()
+	return PackedStringArray(found.keys())
 
 
 ## Manda un messaggio al tracker sul canale di controllo (JSON con campo "type").
@@ -235,6 +276,7 @@ func _set_source(s: Source) -> void:
 	for id: StringName in _players.keys():
 		_players.erase(id)
 		player_lost.emit(id)
+	_set_capabilities(PackedStringArray())
 	source = s
 	source_changed.emit(source_name())
 

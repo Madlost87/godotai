@@ -29,7 +29,7 @@ func make_packet(mouse: Vector2) -> Dictionary:
 	var players: Array = []
 	for pid: StringName in _bodies:
 		players.append(_player(pid, _bodies[pid]))
-	return {"v": 1, "space": "screen", "players": players}
+	return {"v": 1, "space": "screen", "caps": ["effectors", "hands", "markers", "pose"], "players": players}
 
 
 static func _player(pid: StringName, b: Dictionary) -> Dictionary:

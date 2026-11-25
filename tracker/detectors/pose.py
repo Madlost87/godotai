@@ -56,6 +56,8 @@ def _attr(lm: Any, name: str) -> float:
 
 @DETECTORS.register("pose")
 class PoseDetector(Detector):
+    accepts = ("image",)
+    provides = ("pose", "effectors")  # effettori = le mani, ricavate in Godot dalla pose
     def __init__(self, params: dict[str, Any]) -> None:
         super().__init__(params)
         import mediapipe as mp  # import lento: solo quando serve

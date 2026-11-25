@@ -1,35 +1,36 @@
-# Progetto Godot 4.7 (GDScript, renderer Compatibility)
+# Giochi proiettati comandati dal corpo — Godot 4.7 (GDScript, Compatibility) + tracker Python
 
 Flusso di lavoro: l'utente descrive cosa vuole, Claude scrive i file direttamente
-(scene `.tscn`, script `.gd`, `project.godot`) e verifica in headless. Non si usa
-l'editor grafico né l'MCP Godot AI.
+(scene `.tscn`, script `.gd`, `project.godot`, Python) e verifica in headless. Non si usa
+l'editor grafico né l'MCP Godot AI. Panoramica: `README.md`. Riferimento tecnico:
+**`docs/SPEC.md`** (leggilo prima di toccare input, protocollo o tracker; aggiornalo se
+cambiano le decisioni). Guide: `docs/GUIDA_NUOVO_GIOCO.md`, `docs/GUIDA_NUOVO_SENSORE.md`.
 
 ## Comandi
-- `./check.sh` — verifica headless: import, avvio breve della scena principale, test in `tests/`. Eseguilo dopo ogni modifica e correggi gli errori prima di dire che hai finito.
-- `./play.sh` — avvia il gioco in finestra per l'utente. Lancialo in background quando l'utente chiede di provare il gioco.
-- `./play.sh res://tools/body_demo/body_demo.tscn` — demo dell'input corporeo (simulatore col mouse se il tracker non c'è).
-- `./play_body.sh [scena] [opzioni tracker]` — tracker dalla webcam + gioco insieme (default: Bolle, `res://games/bubbles/bubbles.tscn`). Lancialo in background quando l'utente vuole giocare col corpo.
-- `./tracker.sh --debug` — tracker del corpo dalla webcam, con finestra di debug. `--synthetic 2` = persone finte senza camera; `--help` per le opzioni. Ambiente Python in `tracker/.venv` (3.12, `uv`).
-- Calibrazione: `./play.sh res://tools/calibration/calibration.tscn` (sul proiettore; `-- --windowed` per provarla in finestra) + `./tracker.sh --calibrate --debug`. Salva `tracker/calibration.json`.
-- `./check.sh` esegue anche i test pytest del tracker (`tracker/tests`) e un test end-to-end Python → Godot.
+- `./check.sh` — verifica completa: import Godot, avvio del menu, test Godot (`tests/`, `games/*/tests/`, `tools/*/tests/`, `examples/*/tests/`, 120 s max ciascuno), pytest del tracker. Eseguilo dopo ogni modifica; deve essere verde prima di dire che hai finito.
+- `./play_body.sh [res://scena] [opzioni tracker]` — tracker dalla webcam + menu dei giochi (o la scena indicata). `--debug` mostra la camera. Lancialo in background quando l'utente vuole giocare.
+- `./play.sh [res://scena]` — solo Godot (senza tracker il mouse simula una persona).
+- `./new_game.sh <id> "Titolo"` — crea `games/<id>/` dal modello `games/_template/`.
+- `./tracker.sh` — tracker: `--debug`, `--synthetic N [--synthetic-kind contacts]` (persone finte / finto LiDAR), `--source`, `--detectors`, `--list-plugins`, `--calibrate`, `--help`. Ambiente in `tracker/.venv` (Python 3.12, `uv`).
+- Calibrazione: `./play.sh res://tools/calibration/calibration.tscn` (sul proiettore; `-- --windowed` in finestra) + `./tracker.sh --calibrate --debug`.
 
 ## Struttura
-- `scenes/main.tscn` — scena principale (`run/main_scene`).
-- `scripts/` — script GDScript (tipizzati, tab per l'indentazione).
-- `tests/` — test headless: script `extends SceneTree` che terminano con `quit(0)` se ok, `quit(1)` se falliscono.
+- `core/` — framework riusabile, non legato a giochi o sensori: `body_input/` (autoload `BodyInput`), `body/` (`BodyMetrics`, `BodyColliders`, `BodyDebugDraw`), `controllers/` (`GestureController`, `DwellTarget`), `game/` (`BodyGame`, `GameManifest`, `GameRegistry`). Test in `tests/`.
+- `games/<id>/` — un gioco per cartella: `game.json`, scena, script (`extends BodyGame`), `tests/`. `games/_template/` è il modello (non è un gioco, ma è testato).
+- `launcher/` — menu, scena principale; trova i giochi da solo.
+- `tools/` — calibrazione, demo del corpo. `examples/` — demo iniziale (contatore).
+- `tracker/` — Python a plugin: `sources/`, `detectors/` (si registrano da soli), `identity.py`, `protocol.py` (contratto v1 + `validate_packet`), `sinks.py`, `calibration.py`, `control.py`.
+- `data/` — file condivisi Godot/Python (pattern ArUco). `docs/` — spec e guide.
 - `addons/godot_ai/` — plugin Godot AI 4.4.2: non modificarlo.
 
-## Input corporeo (in sviluppo)
-Obiettivo: comandare giochi proiettati con marker colorati, braccia, mani e faccia
-ripresi da webcam. Riferimento: **`docs/SPEC.md`** (architettura, protocollo UDP v1,
-API `BodyInput`, fasi). Tracker Python in `tracker/` → UDP → autoload `BodyInput` →
-controller → azioni Input Map. Leggi la spec prima di lavorare su questa parte e
-aggiornala se cambiano le decisioni.
-
 ## Regole
-- Input sempre tramite azioni dell'Input Map (es. `increment_counter` = Spazio), mai tasti cablati nel codice: l'utente le rimappa su un pulsante esterno.
-- Solo risorse locali semplici (forme, Polygon2D, ColorRect, Label).
-- Quando aggiungi una funzionalità, aggiungi o aggiorna un test in `tests/`.
-- Se modifichi un `.tscn` a mano, mantieni coerenti gli id di `ext_resource`/`sub_resource`.
-- Test headless: le classi che usano l'autoload `BodyInput` vanno caricate con `load()` negli script di test (con `-s` l'autoload non esiste ancora in compilazione); la viewport headless è 64×64, quindi misure in proporzione.
-- Tracker Python: codice modulare. Nuove sorgenti, rilevatori, regole di assegnazione e uscite si aggiungono come classi registrate (`registry.py`) e si attivano da `tracker/config.json`, senza toccare la pipeline. Python tipizzato, 4 spazi.
+- **Giochi indipendenti dal sensore**: usano capacità (`pose`, `hands`, `face`, `markers`, `effectors`) dichiarate in `game.json` ed effettori (`BodyMetrics.effectors`, `BodyColliders`), non dettagli del tracker. Quando basta "toccare", usa gli effettori.
+- **Gioco nuovo**: sempre con `./new_game.sh`, su un ramo `gioco/<id>`. Script principale `extends BodyGame`, inizializzazione in `_game_ready()`. Niente `class_name` nei giochi; ciò che serve a più giochi va in `core/` con un test.
+- **Sensore nuovo**: plugin in `tracker/sources/` + `tracker/detectors/` (con `produces` / `accepts` / `provides`), oppure un altro programma che parla il protocollo v1. Non cambiare il protocollo senza aggiornare `protocol.py`, `validate_packet`, `PlayerState` e la spec.
+- Input sempre tramite azioni dell'Input Map (rimappabili su pulsanti esterni), mai tasti cablati.
+- Solo risorse locali semplici (forme, Polygon2D, ColorRect, Label). Misure in proporzione allo schermo. Nei giochi evita rosso, blu e giallo saturi (colori dei marker).
+- Ogni funzionalità ha un test; ogni gioco ha almeno un test in `games/<id>/tests/` (lo verifica `tests/game_framework_test.gd`).
+- Test headless: con `godot -s` gli autoload non esistono in compilazione, quindi le classi che usano `BodyInput` si caricano con `load()`; la viewport headless è 64×64, quindi misure in proporzione.
+- Se modifichi un `.tscn` a mano, mantieni coerenti gli id di `ext_resource`/`sub_resource`. Spostando script, sposta anche i `.uid`.
+- GDScript tipizzato, tab. Python tipizzato, 4 spazi.
+- Git: `main` sempre verde; remoto `origin` = GitHub. Non committare `tracker/.venv`, modelli, `.godot/`, registrazioni personali (vedi `.gitignore`).

@@ -1,10 +1,12 @@
-extends Node2D
+extends BodyGame
 ## Minigioco "Bolle" (un giocatore): le bolle salgono dal basso, si scoppiano
 ## toccandole con le mani. Normale +1, dorata +3, spinosa -3. Partita di round_time
 ## secondi, con record della sessione.
 ## Si parte (e si riparte) con l'azione "game_start": braccio alzato (GestureController)
 ## oppure Invio.
-## All'avvio chiede al tracker un solo giocatore (BodyInput.set_session).
+## Giocatori e capacità richieste sono in game.json (BodyGame li manda al tracker).
+## Funziona con qualsiasi sensore che dia effettori (mani dalla pose, tocchi di un LiDAR);
+## senza pose il gesto di avvio non c'è, ma resta Invio.
 
 enum State { WAITING, PLAYING, RESULTS }
 
@@ -12,8 +14,6 @@ const BG_TOP := Color(0.05, 0.1, 0.16)
 const BG_BOTTOM := Color(0.08, 0.2, 0.26)
 const TEXT_COLOR := Color(0.92, 0.97, 1.0)
 
-## Giocatori chiesti al tracker. Con la webcam del portatile bisogna stare vicini: 1.
-@export var max_players: int = 1
 @export var round_time: float = 60.0
 ## Se false le bolle non nascono da sole (test).
 @export var auto_spawn: bool = true
@@ -47,14 +47,9 @@ var _rng := RandomNumberGenerator.new()
 @onready var score_label: Label = $HUD/Score
 
 
-func _ready() -> void:
+func _game_ready() -> void:
 	_rng.randomize()
-	BodyInput.set_session({"max_players": max_players})
 	_set_state(State.WAITING)
-
-
-func _exit_tree() -> void:
-	BodyInput.clear_session()
 
 
 func _process(delta: float) -> void:

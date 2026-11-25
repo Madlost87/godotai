@@ -1,4 +1,9 @@
-"""Rilevatori. Ogni modulo si registra in DETECTORS; aggiungerne uno qui sotto lo rende
-attivabile da config.json → "detectors"."""
+"""Rilevatori. Ogni modulo di questo pacchetto si registra in DETECTORS quando viene
+importato, e vengono importati tutti in automatico: nuovo rilevatore = nuovo file qui,
+poi lo si attiva da config.json → "detectors"."""
+import sys
+
+from ..plugins import load_plugins
 from .base import DETECTORS, Detector  # noqa: F401
-from . import pose  # noqa: F401  (registra "pose")
+
+load_plugins(sys.modules[__name__])

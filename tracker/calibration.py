@@ -16,6 +16,7 @@ import cv2
 import numpy as np
 
 from .projection import HomographyProjection
+from .registry import Registry
 
 log = logging.getLogger(__name__)
 
@@ -67,7 +68,18 @@ def solve_homography(cam: np.ndarray, screen: np.ndarray) -> tuple[np.ndarray, f
     return h, err
 
 
+# Metodi di calibrazione: "aruco" per le camere. Un sensore diverso (es. un LiDAR che non
+# vede i marker proiettati) registrerà qui il suo metodo, con la stessa interfaccia:
+# set_layout(layout), feed(data) -> CalibrationStatus, homography, save(path, size).
+CALIBRATION_METHODS: Registry[type] = Registry("metodo di calibrazione")
+
+
+@CALIBRATION_METHODS.register("aruco")
 class Calibrator:
+    """Calibrazione con 4 marker ArUco proiettati. Richiede una sorgente di immagini."""
+
+    accepts = ("image",)
+
     def __init__(self, frames_needed: int = 15, max_error: float = 0.02) -> None:
         self.frames_needed = frames_needed
         self.max_error = max_error
@@ -162,7 +174,7 @@ def draw_debug(image: np.ndarray, calibrator: Calibrator) -> np.ndarray:
 def run_calibration(cfg: dict[str, Any], debug: bool = False, timeout: float = 0.0) -> bool:
     """Ciclo di calibrazione con la camera. Manda lo stato a Godot nei pacchetti v1
     (campo "calibration", lista giocatori vuota). True se la calibrazione è riuscita."""
-    from .capture import SOURCES
+    from .sources import SOURCES
     from .config import TRACKER_DIR
     from .control import ControlChannel
     from .protocol import PROTOCOL_VERSION
@@ -171,8 +183,16 @@ def run_calibration(cfg: dict[str, Any], debug: bool = False, timeout: float = 0
     cal_cfg = cfg["calibration"]
     control = ControlChannel(cfg["control"]["host"], int(cfg["control"]["port"]))
     sinks = [SINKS.get(o.get("type", "udp"))(o) for o in cfg["outputs"]]
+    method = CALIBRATION_METHODS.get(cal_cfg.get("method", "aruco"))
     source = SOURCES.get(cfg["source"].get("type", "camera"))(cfg["source"])
-    calibrator = Calibrator(int(cal_cfg["frames_needed"]), float(cal_cfg["max_error"]))
+    if source.produces not in method.accepts:
+        source.close()
+        control.close()
+        for s in sinks:
+            s.close()
+        raise ValueError(f"la calibrazione '{cal_cfg.get('method', 'aruco')}' accetta {list(method.accepts)}, "
+                         f"la sorgente produce '{source.produces}'")
+    calibrator = method(int(cal_cfg["frames_needed"]), float(cal_cfg["max_error"]))
     path = Path(cfg["projection"].get("calibration_file", "calibration.json"))
     if not path.is_absolute():
         path = TRACKER_DIR / path

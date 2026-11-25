@@ -4,7 +4,8 @@ extends RefCounted
 ## Internamente i punti sono normalizzati (0..1); point() li restituisce in pixel.
 ##
 ## Nomi dei punti: "marker", nomi della pose ("wrist_r", "shoulder_l"...),
-## "hand_r.wrist", "hand_r.index_tip"..., "face".
+## "hand_r.wrist", "hand_r.index_tip"..., "face", "effector.<nome>" (punti di contatto
+## dati dal sensore, es. un LiDAR; vedi BodyMetrics.effectors).
 ## Nomi dei valori: "marker.area", "hand_r.open", "hand_r.pinch", "face.yaw",
 ## "face.pitch", "face.roll", "face.mouth_open"...
 
@@ -97,6 +98,11 @@ func apply(p: Dictionary, t: float, min_cutoff: float, beta: float) -> void:
 					_apply_array_point(key, v, t, min_cutoff, beta)
 				elif _is_num(v):
 					_values[key] = {"v": float(v), "t": t}
+
+	var effectors: Variant = p.get("effectors")
+	if effectors is Dictionary:
+		for k: Variant in effectors:
+			_apply_array_point(StringName("effector." + str(k)), effectors[k], t, min_cutoff, beta)
 
 	var face: Variant = p.get("face")
 	if face is Dictionary:

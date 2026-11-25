@@ -7,7 +7,7 @@ import signal
 import sys
 from pathlib import Path
 
-from .capture import list_cameras
+from .sources.camera import list_cameras
 from .config import load_config
 
 
@@ -24,6 +24,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     ap.add_argument("--assign", choices=["zones", "arrival"], help="regola di assegnazione degli id")
     ap.add_argument("--synthetic", type=int, nargs="?", const=2, metavar="N",
                     help="niente camera: N persone finte (default 2), per provare Godot")
+    ap.add_argument("--synthetic-kind", choices=["body", "contacts"], default="body",
+                    help="con --synthetic: 'body' = scheletri, 'contacts' = solo punti di contatto (come un LiDAR)")
+    ap.add_argument("--source", help="tipo di sorgente (plugin in tracker/sources/), es. camera, video, synthetic")
+    ap.add_argument("--detectors", help="rilevatori da usare, separati da virgola (plugin in tracker/detectors/)")
+    ap.add_argument("--list-plugins", action="store_true", help="elenca sorgenti, rilevatori, uscite ed esci")
     ap.add_argument("--max-frames", type=int, default=0, help="fermati dopo N frame (0 = mai)")
     ap.add_argument("--calibrate", action="store_true",
                     help="calibra con la scena Godot res://tools/calibration/calibration.tscn, poi continua a tracciare")
@@ -42,6 +47,24 @@ def main(argv: list[str] | None = None) -> int:
     if args.list_cameras:
         for c in list_cameras():
             print(f"/dev/video{c['index']}: {c['name']}  {'immagini' if c['capture'] else 'solo metadati / non utilizzabile'}")
+        return 0
+
+    if args.list_plugins:
+        from .detectors import DETECTORS
+        from .identity import ASSIGNERS
+        from .sinks import SINKS
+        from .sources import SOURCES
+
+        for reg, extra in ((SOURCES, "produces"), (DETECTORS, "accepts"), (SINKS, None), (ASSIGNERS, None)):
+            print(f"{reg.kind}:")
+            for name in reg.names():
+                cls = reg.get(name)
+                info = ""
+                if extra == "produces":
+                    info = f"produce '{cls.produces}'"
+                elif extra == "accepts":
+                    info = f"accetta {list(cls.accepts)}, fornisce {list(cls.provides)}"
+                print(f"  {name:20s} {info}")
         return 0
 
     cfg = load_config(args.config)
@@ -63,11 +86,15 @@ def main(argv: list[str] | None = None) -> int:
     if args.assign is not None:
         cfg["identity"]["assign"] = args.assign
     if args.synthetic is not None:
-        from . import synthetic  # noqa: F401  (registra sorgente e rilevatore "synthetic")
-
+        det = "synthetic" if args.synthetic_kind == "body" else "synthetic_contacts"
         cfg["source"] = {"type": "synthetic", "fps": 30}
-        cfg["detectors"] = {"synthetic": {"enabled": True, "count": args.synthetic}}
+        cfg["detectors"] = {det: {"enabled": True, "count": args.synthetic}}
         cfg["identity"]["max_players"] = max(cfg["identity"]["max_players"], args.synthetic)
+    if args.source is not None:
+        cfg["source"]["type"] = args.source
+    if args.detectors is not None:
+        names = [n.strip() for n in args.detectors.split(",") if n.strip()]
+        cfg["detectors"] = {n: {**cfg["detectors"].get(n, {}), "enabled": True} for n in names}
 
     if args.uncalibrated:
         cfg["projection"]["calibration_file"] = "/dev/null/nessuna-calibrazione"
