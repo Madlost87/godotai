@@ -11,7 +11,8 @@ cambiano le decisioni). Guide: `docs/GUIDA_NUOVO_GIOCO.md`, `docs/GUIDA_NUOVO_SE
 - `./play_body.sh [res://scena] [--windowed] [--screen N] [opzioni tracker]` — tracker dalla webcam + menu dei giochi (o la scena indicata), a schermo intero. `--debug` mostra la camera. Lancialo in background quando l'utente vuole giocare. F11 in gioco: finestra/schermo intero.
 - `./play.sh [res://scena]` — solo Godot (senza tracker il mouse simula una persona).
 - `./new_game.sh <id> "Titolo"` — crea `games/<id>/` dal modello `games/_template/`.
-- `./tracker.sh` — tracker: `--debug`, `--mapping body_zone|mirror|stretch|homography|auto`, `--synthetic N [--synthetic-kind contacts]` (persone finte / finto LiDAR), `--source`, `--detectors`, `--list-plugins`, `--calibrate`, `--help`. Ambiente in `tracker/.venv` (Python 3.12, `uv`).
+- Registrare e misurare il movimento: `./tracker.sh --record recordings/session_x.jsonl` (anche via `./play_body.sh`), poi `tracker/.venv/bin/python -m tracker.tools.analyze_recording recordings/session_x.jsonl`. Lavoro aperto: docs/SPEC.md §10.2.
+- `./tracker.sh` — tracker: `--debug`, `--record`, `--mapping body_zone|mirror|stretch|homography|auto`, `--synthetic N [--synthetic-kind contacts]` (persone finte / finto LiDAR), `--source`, `--detectors`, `--list-plugins`, `--calibrate`, `--help`. Ambiente in `tracker/.venv` (Python 3.12, `uv`).
 - Calibrazione: `./play.sh res://tools/calibration/calibration.tscn` (sul proiettore; `-- --windowed` in finestra) + `./tracker.sh --calibrate --debug`.
 
 ## Struttura

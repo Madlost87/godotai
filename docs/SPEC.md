@@ -1,7 +1,8 @@
 # Spec — Input corporeo per giochi proiettati
 
 Versione 0.7 — 2026-11-25 — stato: **fase 1 completata; fasi 2, 3 e 4 implementate**, da
-validare con persone, camera e proiettore reali (vedi §10). Per ora si prova con la webcam
+validare con persone, camera e proiettore reali (vedi §10). **Prossimo lavoro: §10.2,
+movimento del cursore fluido e stabile.** Per ora si prova con la webcam
 del portatile, senza proiettore (coordinate camera a specchio, senza calibrazione).
 
 Novità della 0.7: repo predisposta per molti giochi e per cambiare sensore (§4.1):
@@ -541,6 +542,55 @@ misurare con un test dedicato (fase 7).
 
 Misure ottenute con l'immagine pubblica di prova di MediaPipe (`pose.jpg`), composta in
 frame con 1 e 2 persone in movimento.
+
+## 10.2 DA FARE — Movimento del cursore (mano) fluido e stabile
+
+Stato: **da fare** (pianificato per la mattina del 2026-11-27). Segnalazione dell'utente:
+in gioco il cursore della mano "si muove molto, non è fluido, fa scatti, trema".
+
+### Misure (registrazione reale `recordings/session_tracker_analisi2.jsonl`, solo in locale, non versionata; 53 s, 29,4 fps, webcam del portatile, stanza in penombra, utente vicino al portatile)
+Ottenute con `./tracker.sh --record file.jsonl` e
+`tracker/.venv/bin/python -m tracker.tools.analyze_recording file.jsonl`:
+
+| Misura | Valore |
+|---|---|
+| Rumore da fermo, mediana / 90° (pixel) | naso 0,1 / 0,7 camera; polso 0,8 / 5,1 camera → 1,1 / 6,9 schermo |
+| Amplificazione della zona di gioco | ×1,4–2 (contenuta) |
+| Polso destro presente | **34% dei frame, 184 lampeggi** in 53 s (indice 49%, 218) |
+| Gomito destro | quasi mai visibile (0,1%): fuori inquadratura |
+| Mano per Godot (polso o indice) | presente 49%, **109 interruzioni, 13 oltre 0,3 s** (il cursore sparisce) |
+| Spostamento tra frame | mediana 13 px, 90° 47 px, 23 salti > 60 px |
+| Posizione del polso nell'immagine | y mediana 0,83 (vicino al bordo basso) |
+| Campo visivo camera | in 16:9 (1280×720) vede il **31% in più in larghezza** del 4:3, stessa altezza |
+
+**Diagnosi**: il tremolio vero è piccolo. Gli scatti vengono dai punti delle mani che
+**compaiono e scompaiono** più volte al secondo: il polso sta vicino al bordo basso
+dell'immagine, la sua affidabilità oscilla attorno alla soglia fissa (0,5) e il tracker lo
+accende e spegne a ogni oscillazione; il gomito è fuori campo. Peggiorano: penombra,
+utente troppo vicino alla camera, inquadratura 4:3.
+
+### Piano
+1. **Stabilizzatore nel tracker** (stadio dopo l'identità, per tutti i sensori; bozza sul
+   ramo `funzione/stabilita-tracker`, `tracker/stabilizer.py`, non ancora collegata):
+   isteresi dell'affidabilità (compare ≥ 0,5, scompare < 0,25), tenuta di 0,25 s dei punti
+   mancanti, scarto dei salti isolati > 0,25 altezze immagine (accettati se si ripetono).
+   Il rilevatore `pose` deve passare anche i punti poco affidabili (soglia ~0,15) e
+   lasciare la decisione allo stabilizzatore.
+2. **Camera 16:9** (1280×720) di default; misurare fps e costo di MediaPipe.
+3. **Godot**: centro mano anche con il solo indice (`BodyMetrics.hand_center`); verificare
+   che previsione e correzione dolce non amplifichino il rumore residuo; eventuale
+   taratura del filtro One Euro sulle registrazioni.
+4. **Indicazioni all'utente** nel menu o nella finestra di debug: luce, distanza (gomiti
+   visibili), con un avviso se le mani sono spesso fuori campo.
+5. Nuova registrazione con lo stesso protocollo (10 s fermo, movimenti lenti, veloci, su e
+   giù, gioco) e confronto con le misure sopra.
+
+### Criteri di accettazione (con persona a 1,5–2 m e luce accesa)
+- mano destra presente ≥ 90% dei frame in cui il polso è nell'inquadratura;
+- interruzioni > 0,3 s: al massimo 1 al minuto;
+- rumore da fermo sullo schermo: 90° percentile ≤ 3 px;
+- nessun salto > 60 px che non corrisponda a un movimento reale;
+- l'utente lo giudica fluido giocando a Bolle, Tris e Taglia il filo.
 
 ## 11. Decisioni aperte
 

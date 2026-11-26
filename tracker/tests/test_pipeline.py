@@ -115,3 +115,23 @@ def test_session_from_game_limits_players():
     assert all(ids == ["p1"] for ids in out[11:]), out[11:]
     assert pipe.session == {"max_players": 1} and pipe.identity.max_players == 1
     assert det.sessions == [{"max_players": 1}]  # applicata una volta sola
+
+
+def test_jsonl_recording_sink(tmp_path):
+    """--record: ogni frame su file, con i punti grezzi e il pacchetto; lo script di
+    analisi la legge."""
+    import json as _json
+
+    from tracker.tools.analyze_recording import main as analyze
+
+    path = tmp_path / "rec.jsonl"
+    proj = CameraProjection(mirror=False)
+    sink = SINKS.get("jsonl")({"path": str(path)})
+    pipe = Pipeline(FakeSource(30), [WalkingPeople({})], proj,
+                    IdentityResolver({"mode": "markerless", "max_players": 2}, proj), [sink])
+    pipe.run()
+    pipe.close()
+    rows = [_json.loads(x) for x in path.read_text().splitlines()]
+    assert len(rows) == 30
+    assert rows[5]["raw"][0]["points"]["shoulder_c"] and rows[5]["packet"]["players"][0]["id"] in ("p1", "p2")
+    assert analyze([str(path)]) == 0

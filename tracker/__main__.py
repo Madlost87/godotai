@@ -28,6 +28,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
                     help="con --synthetic: 'body' = scheletri, 'contacts' = solo punti di contatto (come un LiDAR)")
     ap.add_argument("--source", help="tipo di sorgente (plugin in tracker/sources/), es. camera, video, synthetic")
     ap.add_argument("--detectors", help="rilevatori da usare, separati da virgola (plugin in tracker/detectors/)")
+    ap.add_argument("--record", type=Path, help="registra ogni frame (grezzo + pacchetto) in un file .jsonl")
     ap.add_argument("--list-plugins", action="store_true", help="elenca sorgenti, rilevatori, uscite ed esci")
     ap.add_argument("--max-frames", type=int, default=0, help="fermati dopo N frame (0 = mai)")
     ap.add_argument("--calibrate", action="store_true",
@@ -100,6 +101,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.uncalibrated:
         cfg["projection"]["calibration_file"] = "/dev/null/nessuna-calibrazione"
+    if args.record is not None:
+        cfg["outputs"].append({"type": "jsonl", "path": str(args.record)})
     if args.mapping is not None:
         cfg["projection"]["mode"] = args.mapping
 

@@ -2,6 +2,7 @@
 si aggiungono registrando una nuova classe."""
 from __future__ import annotations
 
+import json
 import logging
 import socket
 from abc import ABC, abstractmethod
@@ -47,3 +48,32 @@ class UdpSink(Sink):
 
     def close(self) -> None:
         self._sock.close()
+
+
+@SINKS.register("jsonl")
+class JsonlSink(Sink):
+    """Registra ogni frame su file (una riga JSON): i punti grezzi del sensore (coordinate
+    camera, prima di filtri e mappatura) e il pacchetto mandato al gioco. Serve per
+    analizzare tremolio, scatti e ritardi (`./tracker.sh --record file.jsonl`)."""
+
+    def __init__(self, params: dict[str, Any]) -> None:
+        super().__init__(params)
+        from pathlib import Path
+
+        self.path = Path(str(params.get("path", "registrazione.jsonl")))
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self._f = self.path.open("w", encoding="utf-8")
+
+    def send(self, packet: dict[str, Any]) -> None:
+        self._f.write(json.dumps({"packet": packet}, separators=(",", ":")) + "\n")
+
+    def send_frame(self, result: Any, packet: dict[str, Any]) -> None:
+        raw = [
+            {"id": p.id, "points": {n: [round(pt.x, 5), round(pt.y, 5), round(pt.conf, 3)] for n, pt in p.points.items()}}
+            for p in result.persons
+        ]
+        self._f.write(json.dumps({"t": round(result.frame.t, 4), "raw": raw, "packet": packet},
+                                 separators=(",", ":")) + "\n")
+
+    def close(self) -> None:
+        self._f.close()

@@ -94,7 +94,10 @@ class Pipeline:
         self._update_fps(frame.t)
         packet = build_packet(result, self.projection, self.fps, self.capabilities)
         for sink in self.sinks:
-            sink.send(packet)
+            if hasattr(sink, "send_frame"):
+                sink.send_frame(result, packet)  # uscite che vogliono anche i dati grezzi
+            else:
+                sink.send(packet)
         return result, packet
 
     def run(self, on_result: ResultCallback | None = None, max_frames: int = 0) -> int:
