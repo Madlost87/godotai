@@ -61,6 +61,7 @@ Pezzi pronti in `core/`:
 | Serve… | Usa |
 |---|---|
 | far toccare oggetti al corpo | `BodyColliders` nella scena + `collision_mask = BodyColliders.BODY_LAYER` sugli oggetti; `BodyColliders.owner_of(area)` dice chi ha toccato |
+| giocare con una mano sola | `BodyColliders.play_part = "hand_r"` (con un sensore senza destra/sinistra valgono tutti gli effettori) + `BodyDebugDraw.dim_side = "l"` |
 | il braccio come bastone | `BodyColliders.forearms = true` (rettangoli sugli avambracci, con `velocity`) |
 | un gesto come pulsante | `GestureController` (braccio alzato, braccia aperte…) → azione dell'Input Map |
 | un "clic" tenendo ferma la mano | `DwellTarget` |

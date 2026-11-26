@@ -18,8 +18,13 @@ const BODY_LAYER := 2  # bit del layer 2 "body"
 
 ## Aree sugli effettori (mani o punti di contatto).
 @export var effectors: bool = true
-## Solo questi effettori (es. ["hand_r"] per giocare con la mano destra); vuoto = tutti.
+## Solo questi effettori (es. ["hand_r"]), sempre; vuoto = tutti. Per "una mano sola"
+## usa play_part, che vale solo con i sensori che distinguono destra e sinistra.
 @export var part_filter: PackedStringArray = []
+## Gioco a una mano: se il sensore ha la capacità "pose" vale solo questo effettore
+## (es. "hand_r"; l'altra mano non crea aree e non tocca niente). Senza "pose" (es. un
+## LiDAR, che non sa quale mano è) valgono tutti gli effettori. Vuoto = tutte le mani.
+@export var play_part: String = ""
 ## Avambracci (gomito → mano) come bastoni: per i giochi "braccio come bastone".
 @export var forearms: bool = false
 ## Raggio delle aree sugli effettori, in frazione dell'altezza dello schermo.
@@ -51,14 +56,23 @@ func get_part(player_id: StringName, part: String) -> Area2D:
 	return _parts.get("%s/%s" % [player_id, part])
 
 
+## Il filtro in uso adesso: part_filter, più play_part se il sensore distingue le mani.
+func active_filter() -> PackedStringArray:
+	if not play_part.is_empty() and BodyInput.has_capability("pose"):
+		if part_filter.is_empty() or part_filter.has(play_part):
+			return PackedStringArray([play_part])
+	return part_filter
+
+
 func _physics_process(delta: float) -> void:
 	var h := get_viewport_rect().size.y
 	var alive := {}
+	var filter := active_filter()
 	for p in BodyInput.get_players():
 		if effectors:
 			var eff := BodyMetrics.effectors(p)
 			for part: String in eff:
-				if not part_filter.is_empty() and not part_filter.has(part):
+				if not filter.is_empty() and not filter.has(part):
 					continue
 				var key := _place_circle(p.id, part, eff[part], h * hand_radius_ratio, delta)
 				alive[key] = true

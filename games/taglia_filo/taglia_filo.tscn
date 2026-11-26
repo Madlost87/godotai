@@ -11,6 +11,7 @@ script = ExtResource("1_game")
 modulate = Color(1, 1, 1, 0.25)
 script = ExtResource("2_draw")
 line_width = 5.0
+dim_side = "l"
 show_labels = false
 
 [node name="WireZone" type="Area2D" parent="."]

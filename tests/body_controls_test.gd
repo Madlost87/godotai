@@ -84,6 +84,12 @@ func _test_metrics() -> void:
 	_check(BodyMetrics.has_hand(index_only, "r") and BodyMetrics.hand_center(index_only, "r").is_equal_approx(Vector2(0.7, 0.3) * Vector2(SIZE)),
 		"solo l'indice: la mano c'è ed è sull'indice")
 	_check(BodyMetrics.effectors(index_only).has("hand_r"), "solo l'indice: effettore hand_r presente")
+	var draw: Node2D = load("res://core/body/body_debug_draw.gd").new()
+	draw.dim_side = "l"
+	_check(draw.is_dimmed(&"wrist_l") and draw.is_dimmed(&"elbow_l") and draw.is_dimmed(&"hand_l.wrist"),
+		"scheletro: braccio sinistro attenuato")
+	_check(not draw.is_dimmed(&"wrist_r") and not draw.is_dimmed(&"shoulder_l"), "scheletro: destra e spalle a colori")
+	draw.free()
 
 	_test_tracking_quality()
 

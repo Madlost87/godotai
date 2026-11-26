@@ -409,6 +409,11 @@ senza toccare Python e si testa con le registrazioni.
 - `BodyColliders` (Node2D): `Area2D` sulle mani (cerchi) e, se attivato, sugli avambracci
   (rettangoli), sul layer fisico 2 "body". Metadati `player_id`, `part`, `velocity`;
   `BodyColliders.owner_of(area)`. Disegna le mani come "cursori" colorati per giocatore.
+  **Giochi a una mano**: `play_part = "hand_r"` → con la capacità `pose` solo la mano
+  destra ha un'area (la sinistra non tocca niente); senza `pose` (es. LiDAR) valgono tutti
+  gli effettori. `part_filter` resta per un filtro fisso. Lo scheletro (`BodyDebugDraw`)
+  con `dim_side = "l"` disegna grigio e tenue il braccio che non conta. Usano una mano
+  sola: menu, Bolle, Tris, Taglia il filo.
   Misure in proporzione all'altezza dello schermo.
 
 **Nota sui test headless**: con `-s` lo script di test viene compilato prima che esista
@@ -425,7 +430,7 @@ nome. La viewport headless è 64×64 e non si ridimensiona: i test lavorano in p
   al menu. I giochi implementano `_game_ready()`.
 - **`GameRegistry`**: trova i giochi in `games/` (ignora le cartelle che iniziano con `_`).
 - **`launcher/`** (scena principale): una scheda per gioco; si sceglie tenendo ferma la
-  mano su una scheda (`DwellTarget`) o con frecce + Invio; segnala capacità mancanti.
+  mano destra su una scheda (`DwellTarget`) o con frecce + Invio; segnala capacità mancanti.
 - **`DwellTarget`** (Area2D): "clic" tenendo un effettore fermo per `dwell_time` secondi.
 - **`new_game.sh <id> "Titolo"`**: copia `games/_template` (gioco minimo funzionante con
   test) e rinomina tutto. Procedura completa in `docs/GUIDA_NUOVO_GIOCO.md`.
@@ -434,7 +439,7 @@ nome. La viewport headless è 64×64 e non si ridimensiona: i test lavorano in p
 `scenes/bubbles.tscn`, script in `scripts/games/bubbles/`. **Un giocatore**: con la webcam
 del portatile bisogna stare vicini per vedere il busto, e in due non ci si sta. All'avvio
 il gioco chiede al tracker `{"max_players": 1}` (§5.1). Le bolle salgono dal basso
-ondeggiando e si scoppiano con le mani. Normale +1, dorata +3, spinosa −3. La partita
+ondeggiando e si scoppiano con la **mano destra** (la sinistra è ignorata). Normale +1, dorata +3, spinosa −3. La partita
 dura 60 s e accelera nel tempo. Si parte e si riparte alzando un braccio (azione
 `game_start`, anche con Invio). Punteggio e record della sessione.
 Avvio con la webcam: `./play_body.sh` (tracker in background + gioco).

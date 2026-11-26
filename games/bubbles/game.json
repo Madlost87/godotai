@@ -1,8 +1,8 @@
 {
   "id": "bubbles",
   "title": "Bolle",
-  "description": "Le bolle salgono dal basso: scoppiale con le mani. Azzurra +1, arancione +3, spinosa −3. 60 secondi.",
-  "controls": "Tocca le bolle con le mani. Alza un braccio (o premi Invio) per iniziare. Esc: menu.",
+  "description": "Le bolle salgono dal basso: scoppiale con la mano destra. Azzurra +1, arancione +3, spinosa −3. 60 secondi.",
+  "controls": "Tocca le bolle con la mano destra. Alza un braccio (o premi Invio) per iniziare. Esc: menu.",
   "scene": "bubbles.tscn",
   "players": {"min": 1, "max": 1},
   "requires": ["effectors"],

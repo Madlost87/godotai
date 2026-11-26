@@ -12,12 +12,14 @@ script = ExtResource("1_game")
 modulate = Color(1, 1, 1, 0.3)
 script = ExtResource("2_draw")
 line_width = 5.0
+dim_side = "l"
 show_labels = false
 
 [node name="Bubbles" type="Node2D" parent="."]
 
 [node name="BodyColliders" type="Node2D" parent="."]
 script = ExtResource("3_colliders")
+play_part = "hand_r"
 
 [node name="StartGesture" type="Node" parent="."]
 script = ExtResource("4_gesture")

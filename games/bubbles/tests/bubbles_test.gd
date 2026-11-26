@@ -85,6 +85,13 @@ func _initialize() -> void:
 	await _run(0.3)
 	_check(_popped(golden) and game.score == 1, "bolla dorata: +3")
 
+	# Si gioca con la sola mano destra: una bolla sotto la mano sinistra resta intatta.
+	var under_left: Variant = game.spawn_bubble(Vector2(0.4, 0.75) * vp, Kind.NORMAL, r, 0.0)
+	await _run(0.3)
+	_check(not _popped(under_left) and game.score == 1, "bolla sotto la mano sinistra: ignorata")
+	_check(game.get_node("BodyColliders").get_part(&"p1", "hand_l") == null, "nessuna area sulla mano sinistra")
+	under_left.queue_free()
+
 	var rising: Variant = game.spawn_bubble(Vector2(0.1, 0.5) * vp, Kind.NORMAL, r * 0.6, vp.y * 4.0)
 	var escaped: Array[bool] = [false]
 	rising.escaped.connect(func(_b: Area2D) -> void: escaped[0] = true)

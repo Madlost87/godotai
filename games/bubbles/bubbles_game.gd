@@ -1,6 +1,6 @@
 extends BodyGame
 ## Minigioco "Bolle" (un giocatore): le bolle salgono dal basso, si scoppiano
-## toccandole con le mani. Normale +1, dorata +3, spinosa -3. Partita di round_time
+## toccandole con la mano destra (la sinistra è ignorata: BodyColliders.play_part). Normale +1, dorata +3, spinosa -3. Partita di round_time
 ## secondi, con record della sessione.
 ## Si parte (e si riparte) con l'azione "game_start": braccio alzato (GestureController)
 ## oppure Invio.

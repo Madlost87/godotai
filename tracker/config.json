@@ -2,8 +2,8 @@
   "source": {
     "type": "camera",
     "device": "auto",
-    "width": 640,
-    "height": 480,
+    "width": 1280,
+    "height": 720,
     "fps": 30
   },
   "detectors": {

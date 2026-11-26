@@ -25,6 +25,22 @@ const BONES: Array = [
 
 @export var line_width: float = 6.0
 @export var show_labels: bool = true
+## Giochi a una mano: il braccio di questo lato ("l" o "r") si disegna grigio e tenue,
+## per far capire che non conta. Vuoto = tutto a colori.
+@export var dim_side: String = ""
+
+const DIM_COLOR := Color(0.6, 0.6, 0.6, 0.25)
+
+
+## Vero se il punto appartiene al braccio attenuato (gomito, polso, mano).
+func is_dimmed(point_name: StringName) -> bool:
+	if dim_side.is_empty():
+		return false
+	var n := String(point_name)
+	for part in ["elbow_", "wrist_", "index_", "pinky_", "thumb_"]:
+		if n == part + dim_side:
+			return true
+	return n.begins_with("hand_%s." % dim_side)
 
 
 static func color_for(id: StringName) -> Color:
@@ -44,18 +60,20 @@ func _draw_player(p: PlayerState) -> void:
 	var c := color_for(p.id)
 	for bone: Array in BONES:
 		if p.has_point(bone[0]) and p.has_point(bone[1]):
-			draw_line(p.point(bone[0]), p.point(bone[1]), c.darkened(0.2), line_width, true)
+			var dim: bool = is_dimmed(bone[0]) or is_dimmed(bone[1])
+			draw_line(p.point(bone[0]), p.point(bone[1]), DIM_COLOR if dim else c.darkened(0.2), line_width, true)
 	for n in p.point_names():
 		if n != &"marker" and n != &"face":
-			draw_circle(p.point(n), line_width, c.lightened(0.3))
+			draw_circle(p.point(n), line_width, DIM_COLOR if is_dimmed(n) else c.lightened(0.3))
 	for side in ["l", "r"]:
 		var key := StringName("hand_%s.wrist" % side)
 		var open_key := StringName("hand_%s.open" % side)
 		if p.has_point(key) and p.has_value(open_key):
+			var hc := DIM_COLOR if side == dim_side else Color.WHITE
 			if p.value(open_key) > 0.5:
-				draw_arc(p.point(key), 22.0, 0.0, TAU, 32, Color.WHITE, 3.0, true)
+				draw_arc(p.point(key), 22.0, 0.0, TAU, 32, hc, 3.0, true)
 			else:
-				draw_circle(p.point(key), 16.0, Color.WHITE)
+				draw_circle(p.point(key), 16.0, hc)
 	if p.has_point(&"face"):
 		var f := p.point(&"face")
 		draw_arc(f, 40.0, 0.0, TAU, 40, c, 3.0, true)
