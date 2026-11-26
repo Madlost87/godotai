@@ -65,8 +65,8 @@ class CameraSource(FrameSource):
         fourcc = params.get("fourcc")
         if fourcc:
             self._cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*fourcc))
-        self._cap.set(cv2.CAP_PROP_FRAME_WIDTH, int(params.get("width", 640)))
-        self._cap.set(cv2.CAP_PROP_FRAME_HEIGHT, int(params.get("height", 480)))
+        self._cap.set(cv2.CAP_PROP_FRAME_WIDTH, int(params.get("width", 1280)))
+        self._cap.set(cv2.CAP_PROP_FRAME_HEIGHT, int(params.get("height", 720)))
         self._cap.set(cv2.CAP_PROP_FPS, int(params.get("fps", 30)))
         # 2 buffer: con 1 il driver perde frame (misurato: 20 fps invece di 30 sulla HP FHD).
         # La latenza non cresce perché il thread di cattura tiene solo l'ultimo frame.

@@ -94,6 +94,8 @@ class FrameResult:
     persons: list[Person] = field(default_factory=list)
     markers: list[Marker] = field(default_factory=list)
     timings: dict[str, float] = field(default_factory=dict)  # ms per stadio
+    # punti del sensore prima dello stabilizzatore, per id (per registrazioni e analisi)
+    raw: dict[str, dict[str, Point]] | None = None
 
     def players(self) -> list[Person]:
         return sorted((p for p in self.persons if p.id is not None), key=lambda p: p.id or "")

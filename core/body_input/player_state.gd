@@ -21,8 +21,12 @@ extends RefCounted
 var display_smoothing: bool = true
 var extrapolation_limit: float = 0.05
 var correction_time: float = 0.06
-## Oltre questa distanza (normalizzata) un salto è considerato un teletrasporto: niente correzione dolce.
-const MAX_CORRECTION := 0.15
+## Salto (normalizzato) oltre cui il filtro riparte dal punto nuovo invece di scivolarci
+## lentamente (es. mano che riappare altrove; i salti falsi isolati li scarta il tracker).
+const FILTER_RESET_JUMP := 0.15
+## Fino a questa distanza la differenza con ciò che era a schermo si assorbe con la
+## correzione dolce (~correction_time); oltre è un teletrasporto e il punto scatta.
+const MAX_CORRECTION := 0.4
 ## Velocità massima credibile, in schermi al secondo (oltre: rumore).
 const MAX_SPEED := 6.0
 
@@ -202,6 +206,11 @@ func _set_point(key: StringName, raw: Vector2, conf: float) -> void:
 		e = {"filter": OneEuroFilter.new(_min_cutoff, _beta), "vel": Vector2.ZERO, "corr": Vector2.ZERO}
 		_points[key] = e
 	var shown := Vector2.ZERO if is_new else _display(e, _t)
+	if not is_new and raw.distance_to(e["pos"]) > FILTER_RESET_JUMP:
+		# salto vero (i salti falsi isolati li scarta il tracker): ci si va subito,
+		# invece di scivolarci lentamente col filtro
+		e["filter"] = OneEuroFilter.new(_min_cutoff, _beta)
+		e["vel"] = Vector2.ZERO
 	var f: OneEuroFilter = e["filter"]
 	f.min_cutoff = _min_cutoff
 	f.beta = _beta

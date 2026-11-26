@@ -11,7 +11,7 @@ cambiano le decisioni). Guide: `docs/GUIDA_NUOVO_GIOCO.md`, `docs/GUIDA_NUOVO_SE
 - `./play_body.sh [res://scena] [--windowed] [--screen N] [opzioni tracker]` — tracker dalla webcam + menu dei giochi (o la scena indicata), a schermo intero. `--debug` mostra la camera. Lancialo in background quando l'utente vuole giocare. F11 in gioco: finestra/schermo intero.
 - `./play.sh [res://scena]` — solo Godot (senza tracker il mouse simula una persona).
 - `./new_game.sh <id> "Titolo"` — crea `games/<id>/` dal modello `games/_template/`.
-- Registrare e misurare il movimento: `./tracker.sh --record recordings/session_x.jsonl` (anche via `./play_body.sh`), poi `tracker/.venv/bin/python -m tracker.tools.analyze_recording recordings/session_x.jsonl`. Lavoro aperto: docs/SPEC.md §10.2.
+- Registrare e misurare il movimento: `./tracker.sh --record recordings/session_x.jsonl` (anche via `./play_body.sh`), poi `tracker/.venv/bin/python -m tracker.tools.analyze_recording recordings/session_x.jsonl [--stabilize]`. Stato e misure del cursore: docs/SPEC.md §10.2.
 - `./tracker.sh` — tracker: `--debug`, `--record`, `--mapping body_zone|mirror|stretch|homography|auto`, `--synthetic N [--synthetic-kind contacts]` (persone finte / finto LiDAR), `--source`, `--detectors`, `--list-plugins`, `--calibrate`, `--help`. Ambiente in `tracker/.venv` (Python 3.12, `uv`).
 - Calibrazione: `./play.sh res://tools/calibration/calibration.tscn` (sul proiettore; `-- --windowed` in finestra) + `./tracker.sh --calibrate --debug`.
 
@@ -20,7 +20,7 @@ cambiano le decisioni). Guide: `docs/GUIDA_NUOVO_GIOCO.md`, `docs/GUIDA_NUOVO_SE
 - `games/<id>/` — un gioco per cartella: `game.json`, scena, script (`extends BodyGame`), `tests/`. `games/_template/` è il modello (non è un gioco, ma è testato).
 - `launcher/` — menu, scena principale; trova i giochi da solo.
 - `tools/` — calibrazione, demo del corpo. `examples/` — demo iniziale (contatore).
-- `tracker/` — Python a plugin: `sources/`, `detectors/` (si registrano da soli), `identity.py`, `protocol.py` (contratto v1 + `validate_packet`), `sinks.py`, `calibration.py`, `control.py`.
+- `tracker/` — Python a plugin: `sources/`, `detectors/` (si registrano da soli), `identity.py`, `stabilizer.py` (punti che non lampeggiano né saltano), `protocol.py` (contratto v1 + `validate_packet`), `sinks.py`, `calibration.py`, `control.py`.
 - `data/` — file condivisi Godot/Python (pattern ArUco). `docs/` — spec e guide.
 - `addons/godot_ai/` — plugin Godot AI 4.4.2: non modificarlo.
 

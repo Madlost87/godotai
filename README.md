@@ -7,7 +7,8 @@ persone e un tracker Python manda a Godot dove sono mani, busto, faccia o punti 
 ```
 sensore ──► tracker/ (Python, plugin) ──UDP, protocollo v1──► core/ (Godot) ──► games/<id>/
              sorgente → rilevatori                              BodyInput, BodyMetrics,
-             → identità → pacchetto                             BodyColliders, controller
+             → identità → stabilizzatore                        BodyColliders, controller
+             → pacchetto
 ```
 
 ## Avvio rapido

@@ -79,6 +79,7 @@ func _test_judge() -> void:
 func _test_latency_compensation() -> void:
 	print("-- compensazione del ritardo")
 	var g := _g
+	var latency_before: float = _bi.input_latency
 	g.start_game()
 	g.window_center = 2.0
 	g.window_width = 0.4
@@ -98,7 +99,7 @@ func _test_latency_compensation() -> void:
 	g._set_needle(2.0, 2.0)
 	await create_timer(0.15).timeout
 	_check(g.cut() == Result.MISS, "senza compensazione lo stesso taglio sarebbe mancato")
-	_bi.input_latency = 0.1
+	_bi.input_latency = latency_before
 
 
 func _test_hand_flow() -> void:
@@ -151,11 +152,16 @@ func _test_game_over() -> void:
 	var g := _g
 	g.start_game()
 	g.game_over_cooldown = 0.2
+	# tagli giudicati adesso: con la compensazione si guarderebbe la lancetta di prima
+	# di _set_needle, ancora in movimento (risultato a caso)
+	var latency_before: float = _bi.input_latency
+	_bi.input_latency = 0.0
 	for i in g.lives_start:
 		g.window_center = 1.0
 		g._set_needle(1.0 + PI, 0.0)
 		g.armed = true
 		g.cut()
+	_bi.input_latency = latency_before
 	_check(g.state == 2 and g.lives == 0, "3 tagli fuori: partita finita")
 	_check(g.title_label.text.contains("record"), "mostra punti e record")
 	await _hands(Vector2(0.3, 0.95), null, 0.4)

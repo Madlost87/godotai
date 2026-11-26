@@ -27,13 +27,15 @@ var lost_timeout: float = 0.3
 ## Se il tracker tace per simulator_fallback_after secondi, passa al simulatore.
 var simulator_fallback: bool = true
 var simulator_fallback_after: float = 2.0
-## Filtro One Euro, in coordinate normalizzate.
-var filter_min_cutoff: float = 1.0
-var filter_beta: float = 10.0
+## Filtro One Euro, in coordinate normalizzate. Tarato su una registrazione reale
+## (docs/SPEC.md §10.2): rispetto a 1,0 / 10 il rumore da fermo scende da 4,1 a 2,6 px
+## e i salti si dimezzano, con ~20 ms di ritardo in più in movimento.
+var filter_min_cutoff: float = 0.7
+var filter_beta: float = 3.0
 ## Ritardo stimato tra un movimento reale e il momento in cui un gioco lo "vede"
 ## (camera + tracker + rete + filtro, al netto della previsione). I giochi di timing
 ## giudicano un gesto avvenuto a `now() - input_latency`. Misure in docs/SPEC.md §10.1.
-var input_latency: float = 0.10
+var input_latency: float = 0.12
 ## Fluidità a schermo (vedi PlayerState): previsione tra i campioni e correzione dolce.
 var display_smoothing: bool = true
 var extrapolation_limit: float = 0.05

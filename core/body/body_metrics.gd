@@ -31,12 +31,14 @@ static func shoulder_center(p: PlayerState) -> Vector2:
 
 
 static func has_hand(p: PlayerState, side: String) -> bool:
-	return p.has_point(StringName("wrist_" + side)) or p.has_point(StringName("hand_%s.wrist" % side))
+	return (p.has_point(StringName("wrist_" + side)) or p.has_point(StringName("index_" + side))
+		or p.has_point(StringName("hand_%s.wrist" % side)))
 
 
 ## Centro della mano, calcolato sempre nello stesso modo finché ci sono gli stessi punti
 ## (niente salti): prolunga l'avambraccio oltre il polso (il gomito è un punto stabile);
-## senza gomito usa il punto tra polso e indice; altrimenti il polso.
+## senza gomito usa il punto tra polso e indice; altrimenti il polso, o l'indice da solo
+## (vicino al bordo dell'immagine a volte la camera vede le dita ma non il polso).
 const HAND_FROM_FOREARM := 0.3
 
 
@@ -51,6 +53,8 @@ static func hand_center(p: PlayerState, side: String) -> Vector2:
 		return (p.point(wrist) + p.point(index)) * 0.5
 	if p.has_point(wrist):
 		return p.point(wrist)
+	if p.has_point(index):
+		return p.point(index)
 	var hw := StringName("hand_%s.wrist" % side)
 	return p.point(hw) if p.has_point(hw) else Vector2.ZERO
 

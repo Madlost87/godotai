@@ -43,6 +43,10 @@ class DebugView:
             self._draw_person(img, person, w, h)
         lines = [f"{fps:4.1f} fps   persone: {len(result.persons)}   giocatori: {len(packet['players'])}"]
         lines += [f"{k}: {v:.1f} ms" for k, v in result.timings.items()]
+        warn = image_advice(result.frame.image) if result.frame.kind == "image" else ""
+        if warn:
+            cv2.putText(img, warn, (10, h - 16), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 4, cv2.LINE_AA)
+            cv2.putText(img, warn, (10, h - 16), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (80, 170, 255), 2, cv2.LINE_AA)
         for i, line in enumerate(lines):
             cv2.putText(img, line, (10, 22 + 20 * i), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 0, 0), 3, cv2.LINE_AA)
             cv2.putText(img, line, (10, 22 + 20 * i), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 1, cv2.LINE_AA)
@@ -80,3 +84,13 @@ class DebugView:
 
     def close(self) -> None:
         cv2.destroyAllWindows()
+
+
+DARK_LEVEL = 70  # luminosità media (0..255) sotto cui MediaPipe perde le mani
+
+
+def image_advice(img: np.ndarray) -> str:
+    """Consiglio sull'immagine (docs/SPEC.md §10.2): oggi solo la luce."""
+    gray = cv2.cvtColor(img[::8, ::8], cv2.COLOR_BGR2GRAY)
+    level = float(gray.mean())
+    return f"Poca luce ({level:.0f}/255): le mani si perdono, accendi una luce" if level < DARK_LEVEL else ""

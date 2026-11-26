@@ -18,8 +18,10 @@ DEFAULTS: dict[str, Any] = {
         "device": "auto",  # "auto" = primo nodo /dev/video* che dà immagini
         "path": "",  # per "video"
         "loop": False,  # per "video"
-        "width": 640,
-        "height": 480,
+        # 16:9: stessa altezza del 4:3 ma il 31% in più in larghezza, stesso costo di
+        # MediaPipe (misurato: 30 fps, ~14 ms per frame anche a 1280×720)
+        "width": 1280,
+        "height": 720,
         "fps": 30,
         "fourcc": "MJPG",
         "buffers": 2,  # buffer del driver: 1 fa perdere frame
@@ -34,7 +36,9 @@ DEFAULTS: dict[str, Any] = {
             "min_detection_confidence": 0.5,
             "min_presence_confidence": 0.5,
             "min_tracking_confidence": 0.5,
-            "min_visibility": 0.5,  # sotto questa soglia il punto non viene inviato
+            # sotto questa soglia il punto è scartato; tra questa e stabilizer.show_conf
+            # decide lo stabilizzatore (isteresi), così i polsi incerti non lampeggiano
+            "min_visibility": 0.15,
             "margin": 0.05,  # punti oltre questo margine fuori dall'immagine scartati
         },
     },
@@ -44,6 +48,14 @@ DEFAULTS: dict[str, Any] = {
         "max_players": 2,
         "max_distance": 0.15,
         "hold_time": 0.5,
+    },
+    # Dopo l'identità, per ogni sensore: niente punti che lampeggiano o saltano (§10.2).
+    "stabilizer": {
+        "enabled": True,
+        "show_conf": 0.5,  # un punto compare solo con affidabilità ≥ show_conf...
+        "hide_conf": 0.25,  # ...e scompare solo sotto hide_conf
+        "hold_time": 0.25,  # secondi: un punto che manca resta dov'era
+        "max_jump": 0.25,  # salto in un frame (altezze immagine) ignorato se isolato
     },
     "projection": {
         # "auto" = proiettore calibrato se c'è calibration.json, altrimenti `uncalibrated`.

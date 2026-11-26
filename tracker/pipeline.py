@@ -1,5 +1,5 @@
 """Assemblaggio ed esecuzione della pipeline:
-sorgente → rilevatori → identità → protocollo → uscite."""
+sorgente → rilevatori → identità → stabilizzatore → mappatura → protocollo → uscite."""
 from __future__ import annotations
 
 import logging
@@ -13,6 +13,7 @@ from .identity import IdentityResolver
 from .projection import Projection, load_projection
 from .protocol import build_packet
 from .sinks import SINKS, Sink
+from .stabilizer import Stabilizer
 from .structs import FrameResult
 
 log = logging.getLogger(__name__)
@@ -30,6 +31,7 @@ class Pipeline:
         identity: IdentityResolver,
         sinks: list[Sink],
         control: ControlChannel | None = None,
+        stabilizer: Stabilizer | None = None,
     ) -> None:
         self.source = source
         self.detectors = detectors
@@ -37,6 +39,7 @@ class Pipeline:
         self.identity = identity
         self.sinks = sinks
         self.control = control
+        self.stabilizer = stabilizer
         self.session: dict[str, Any] = {}
         self.fps = 0.0
         self._last_t: float | None = None
@@ -85,11 +88,17 @@ class Pipeline:
         result = FrameResult(frame)
         if frame.kind == "image":
             self.projection.set_camera_size(*frame.size)
+            if self.stabilizer is not None:
+                self.stabilizer.set_camera_size(*frame.size)
         for det in self.detectors:
             t0 = time.perf_counter()
             det.process(frame, result)
             result.timings[type(det).__name__] = (time.perf_counter() - t0) * 1000
         self.identity.resolve(result)
+        if self.stabilizer is not None:
+            t0 = time.perf_counter()
+            self.stabilizer.process(result)  # punti che non lampeggiano né saltano
+            result.timings["Stabilizer"] = (time.perf_counter() - t0) * 1000
         self.projection.update(result)  # es. zone di gioco che seguono le persone
         self._update_fps(frame.t)
         packet = build_packet(result, self.projection, self.fps, self.capabilities)
@@ -159,4 +168,5 @@ def build_pipeline(cfg: dict[str, Any]) -> Pipeline:
         control = ControlChannel(cfg["control"]["host"], int(cfg["control"]["port"]))
     except RuntimeError as e:
         log.warning("canale di controllo non disponibile: %s", e)
-    return Pipeline(source, detectors, projection, identity, sinks, control)
+    stabilizer = Stabilizer(cfg.get("stabilizer", {}))
+    return Pipeline(source, detectors, projection, identity, sinks, control, stabilizer)

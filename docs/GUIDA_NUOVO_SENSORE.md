@@ -23,7 +23,9 @@ richieste dei giochi (giocatori, capacità), ascolta su `127.0.0.1:4243` i messa
 
 ### B. Un nuovo plugin nel tracker Python (consigliato)
 
-Così si riusano identità, proiezione/calibrazione, protocollo, uscite e test.
+Così si riusano identità, stabilizzatore (niente punti che lampeggiano o saltano: il
+rilevatore può passare anche i punti poco affidabili, con la loro `conf`),
+proiezione/calibrazione, protocollo, uscite e test.
 
 1. **Sorgente**: un file in `tracker/sources/`, si registra da solo.
 

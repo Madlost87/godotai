@@ -53,7 +53,7 @@ class UdpSink(Sink):
 @SINKS.register("jsonl")
 class JsonlSink(Sink):
     """Registra ogni frame su file (una riga JSON): i punti grezzi del sensore (coordinate
-    camera, prima di filtri e mappatura) e il pacchetto mandato al gioco. Serve per
+    camera, prima di stabilizzatore, filtri e mappatura) e il pacchetto mandato al gioco. Serve per
     analizzare tremolio, scatti e ritardi (`./tracker.sh --record file.jsonl`)."""
 
     def __init__(self, params: dict[str, Any]) -> None:
@@ -68,11 +68,15 @@ class JsonlSink(Sink):
         self._f.write(json.dumps({"packet": packet}, separators=(",", ":")) + "\n")
 
     def send_frame(self, result: Any, packet: dict[str, Any]) -> None:
-        raw = [
-            {"id": p.id, "points": {n: [round(pt.x, 5), round(pt.y, 5), round(pt.conf, 3)] for n, pt in p.points.items()}}
-            for p in result.persons
-        ]
-        self._f.write(json.dumps({"t": round(result.frame.t, 4), "raw": raw, "packet": packet},
+        def pts(person: Any) -> dict[str, Any]:
+            src = person.points if result.raw is None else result.raw.get(person.id or "", person.points)
+            return {n: [round(pt.x, 5), round(pt.y, 5), round(pt.conf, 3)] for n, pt in src.items()}
+
+        raw = [{"id": p.id, "points": pts(p)} for p in result.persons]
+        row: dict[str, Any] = {"t": round(result.frame.t, 4), "raw": raw, "packet": packet}
+        if result.frame.kind == "image":
+            row["camera"] = list(result.frame.size)
+        self._f.write(json.dumps(row,
                                  separators=(",", ":")) + "\n")
 
     def close(self) -> None:

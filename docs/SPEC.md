@@ -1,8 +1,8 @@
 # Spec — Input corporeo per giochi proiettati
 
 Versione 0.7 — 2026-11-25 — stato: **fase 1 completata; fasi 2, 3 e 4 implementate**, da
-validare con persone, camera e proiettore reali (vedi §10). **Prossimo lavoro: §10.2,
-movimento del cursore fluido e stabile.** Per ora si prova con la webcam
+validare con persone, camera e proiettore reali (vedi §10). **§10.2 (cursore fluido e
+stabile): implementato e misurato offline; manca la prova con una registrazione nuova.** Per ora si prova con la webcam
 del portatile, senza proiettore (coordinate camera a specchio, senza calibrazione).
 
 Novità della 0.7: repo predisposta per molti giochi e per cambiare sensore (§4.1):
@@ -13,7 +13,8 @@ framework `core/`, giochi in `games/<id>/` con `game.json`, menu `launcher/`,
 
 Hardware: una webcam HP FHD Camera. Linux la espone come `/dev/video0` (immagini) e
 `/dev/video1` (solo metadati UVC); il tracker sceglie da solo il nodo che dà immagini.
-Formati: MJPG fino a 1920×1080 a 30 fps; il tracker usa 640×480.
+Formati: MJPG fino a 1920×1080 a 30 fps; il tracker usa 1280×720 (16:9: il 31% in più in
+larghezza del 640×480, stesso costo della pose).
 
 Novità della 0.3: i marker diventano facoltativi (modalità `markerless` / `markers` / `mixed`),
 id stabili senza marker, punti del busto ampliati, fasi riordinate (prima il corpo, poi i colori).
@@ -330,7 +331,10 @@ func confidence(name: StringName) -> float
 func value(name: StringName) -> float             # "hand_r.open", "face.yaw", "face.mouth_open"...
 ```
 
-- **Filtro**: One Euro per ogni punto (parametri `min_cutoff`, `beta` in config).
+- **Filtro**: One Euro per ogni punto (`BodyInput.filter_min_cutoff` 0,7 e
+  `filter_beta` 3, tarati su una registrazione reale, §10.2). Un salto oltre il 15% dello
+  schermo in un campione (mano riapparsa altrove) fa ripartire il filtro dal punto nuovo,
+  e la differenza a schermo si assorbe con la correzione dolce (fino al 40% dello schermo).
   Il filtro usa l'istante di scatto del sensore (campo `t` del pacchetto), non l'ora di
   arrivo: le irregolarità di rete non diventano finte accelerazioni. Si elaborano tutti i
   pacchetti arrivati, in ordine.
@@ -455,7 +459,7 @@ deve uscire per ricaricare. Nel verde +1, al centro +2; la finestra si sposta e 
 stringe (×0,9, min ~11°), la lancetta accelera (×1,1, max ~340°/s) e dal livello 4
 inverte il senso a intervalli casuali. Fuori dal verde o 3 passaggi senza taglio: −1
 vita (3 vite). **Compensazione del ritardo**: il taglio si giudica dove era la lancetta a
-`now − BodyInput.input_latency` (0,10 s di default; la storia esatta del movimento è in
+`now − BodyInput.input_latency` (0,12 s di default; la storia esatta del movimento è in
 `needle_angle_at`). `BodyInput.input_latency` è nel core per tutti i giochi di timing.
 
 ## 7. Calibrazione
@@ -525,6 +529,7 @@ quindi la posizione corrisponde a dove cadrebbe la sua **ombra**. È una scelta 
 | Stadio | Misura |
 |--------|--------|
 | Camera HP FHD 640×480 MJPG | 30 fps (con `buffers: 2`; con 1 buffer scendeva a 20 fps) |
+| Camera HP FHD 1280×720 MJPG (default dal 2026-11-27) | 30 fps; pose `full` ~14 ms/frame (p90 19), come a 640×480 |
 | Pose `lite`, 1–2 persone | 20–21 ms/frame (p95 28 ms) → max ~50 fps |
 | Pose `full`, 1–2 persone | 26–27 ms/frame (p95 31 ms) → max ~37 fps |
 | Pose `heavy`, 1 / 2 persone | 60 / 95 ms/frame → 17 / 10 fps: **non adatto** al tempo reale |
@@ -545,7 +550,8 @@ frame con 1 e 2 persone in movimento.
 
 ## 10.2 DA FARE — Movimento del cursore (mano) fluido e stabile
 
-Stato: **da fare** (pianificato per la mattina del 2026-11-27). Segnalazione dell'utente:
+Stato: **implementato il 2026-11-27, misurato offline sulla registrazione sotto; manca la
+prova dal vivo con una registrazione nuova** (punto 5 del piano). Segnalazione dell'utente:
 in gioco il cursore della mano "si muove molto, non è fluido, fa scatti, trema".
 
 ### Misure (registrazione reale `recordings/session_tracker_analisi2.jsonl`, solo in locale, non versionata; 53 s, 29,4 fps, webcam del portatile, stanza in penombra, utente vicino al portatile)
@@ -584,6 +590,35 @@ utente troppo vicino alla camera, inquadratura 4:3.
    visibili), con un avviso se le mani sono spesso fuori campo.
 5. Nuova registrazione con lo stesso protocollo (10 s fermo, movimenti lenti, veloci, su e
    giù, gioco) e confronto con le misure sopra.
+
+### Fatto (2026-11-27)
+1. `tracker/stabilizer.py`, stadio dopo l'identità (config `stabilizer`): isteresi
+   0,5/0,25, tenuta 0,25 s, salti isolati > 0,25 altezze scartati. La pose passa i punti
+   da 0,15 in su (`min_visibility`). Le registrazioni salvano i punti **prima** dello
+   stabilizzatore e la risoluzione della camera.
+2. Camera 1280×720 di default (30 fps, stesso costo della pose: §10.1).
+3. Godot: mano anche con il solo indice; filtro One Euro 0,7 / 3 (era 1,0 / 10); un salto
+   oltre il 15% dello schermo fa ripartire il filtro, la correzione dolce lo assorbe fino al
+   40%; `input_latency` 0,12 s (il filtro aggiunge ~20 ms).
+4. Consigli: nel menu (`TrackingQuality`, in `core/body/`: mani spesso perse → luce e
+   distanza; gomiti mai visti → troppo vicino); nella finestra `--debug`, "Poca luce"
+   sotto 70/255 di luminosità media.
+
+**Misure offline** sulla registrazione di partenza, rigiocata in `PlayerState` come in
+Godot (lost_timeout 0,3 s, mano campionata a 60 Hz su 1152×720). Attenzione: quella
+registrazione non contiene i punti sotto 0,5, quindi l'isteresi non si vede; dal vivo
+il miglioramento dovrebbe essere maggiore.
+
+| | Prima | Dopo |
+|---|---|---|
+| Mano visibile (in Godot) | 67% | 73% |
+| Sparizioni > 0,3 s | 12 | 7 (la mano era davvero fuori campo) |
+| Rumore da fermo, 90° percentile | 4,8 px | **2,7 px** |
+| Salti > 60 px tra due frame | 23 | 8 |
+| Ritardo in movimento (stima) | ~50 ms | ~70 ms |
+
+`analyze_recording --stabilize` simula lo stabilizzatore su una registrazione (interruzioni
+dei pacchetti: da 109 a 16).
 
 ### Criteri di accettazione (con persona a 1,5–2 m e luce accesa)
 - mano destra presente ≥ 90% dei frame in cui il polso è nell'inquadratura;

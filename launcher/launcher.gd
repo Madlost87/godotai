@@ -2,7 +2,8 @@ extends Node2D
 ## Menu dei giochi (scena principale). Trova da solo i giochi in games/ (GameRegistry)
 ## e li mostra come schede. Si sceglie col corpo (mano ferma su una scheda: DwellTarget)
 ## o con la tastiera (ui_left / ui_right, ui_accept o game_start). game_exit chiude.
-## Ogni scheda segnala le capacità che il sensore collegato non ha.
+## Ogni scheda segnala le capacità che il sensore collegato non ha. Se il sensore vede
+## male chi gioca (mani perse, troppo vicino), sopra la barra di stato compare un consiglio.
 
 const BG := Color(0.07, 0.08, 0.11)
 const CARD_BG := Color(0.13, 0.15, 0.2)
@@ -15,6 +16,8 @@ const MAX_COLUMNS := 4
 var games: Array[GameManifest] = []
 var focus: int = 0
 var cards: Array[DwellTarget] = []
+var quality := TrackingQuality.new()
+var hint: String = ""
 
 @onready var cards_root: Node2D = $Cards
 @onready var status_label: Label = $HUD/Status
@@ -82,6 +85,10 @@ func _process(_delta: float) -> void:
 	for i in cards.size():
 		if cards[i].is_hovered():
 			focus = i
+	var players: Array = BodyInput.get_players()
+	quality.uses_pose = BodyInput.capabilities.has("pose")
+	quality.sample(players[0] if not players.is_empty() else null, BodyInput.now())
+	hint = quality.hint() if BodyInput.source_name() == "UDP" else ""  # solo con un sensore vero
 	var caps := ", ".join(BodyInput.capabilities) if not BodyInput.capabilities.is_empty() else "nessuna"
 	status_label.text = "Sensore: %s  ·  %.0f fps  ·  capacità: %s" % [BodyInput.source_name(), BodyInput.tracker_fps, caps]
 	queue_redraw()
@@ -95,6 +102,8 @@ func _draw() -> void:
 	draw_string(font, Vector2(0, vp.y * 0.13), "GIOCHI", HORIZONTAL_ALIGNMENT_CENTER, vp.x, fs, TEXT)
 	draw_string(font, Vector2(0, vp.y * 0.18), "Tieni la mano su un gioco per sceglierlo  ·  frecce + Invio  ·  F11 schermo intero  ·  Esc esce",
 		HORIZONTAL_ALIGNMENT_CENTER, vp.x, maxi(int(vp.y * 0.03), 8), TEXT_DIM)
+	if hint != "":
+		draw_string(font, Vector2(0, vp.y * 0.9), hint, HORIZONTAL_ALIGNMENT_CENTER, vp.x, maxi(int(vp.y * 0.03), 8), WARN)
 	if games.is_empty():
 		draw_string(font, Vector2(0, vp.y * 0.5), "Nessun gioco. Creane uno con ./new_game.sh <id> \"Titolo\"",
 			HORIZONTAL_ALIGNMENT_CENTER, vp.x, maxi(int(vp.y * 0.035), 8), WARN)

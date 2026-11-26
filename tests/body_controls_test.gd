@@ -1,5 +1,5 @@
 extends SceneTree
-## BodyMetrics, BodyMetrics.Baseline, GestureController, BodyColliders.
+## BodyMetrics, BodyMetrics.Baseline, GestureController, BodyColliders, TrackingQuality.
 ## Nota: con "-s" lo script di test viene compilato prima che esista l'autoload
 ## BodyInput, quindi le classi che lo usano (GestureController, BodyColliders) si
 ## caricano a runtime con load() invece di citarle per nome.
@@ -80,6 +80,39 @@ func _test_metrics() -> void:
 	var head_only := state({"nose": Vector2(0.5, 0.3)})
 	_check(is_nan(BodyMetrics.arm_raised(head_only, "r")) and is_nan(BodyMetrics.torso_lean(head_only)), "punti mancanti → NAN")
 	_check(not BodyMetrics.has_hand(head_only, "l"), "has_hand falso senza polso")
+	var index_only := state({"index_r": Vector2(0.7, 0.3)})
+	_check(BodyMetrics.has_hand(index_only, "r") and BodyMetrics.hand_center(index_only, "r").is_equal_approx(Vector2(0.7, 0.3) * Vector2(SIZE)),
+		"solo l'indice: la mano c'è ed è sull'indice")
+	_check(BodyMetrics.effectors(index_only).has("hand_r"), "solo l'indice: effettore hand_r presente")
+
+	_test_tracking_quality()
+
+
+func _test_tracking_quality() -> void:
+	print("-- TrackingQuality")
+	var good := state({"shoulder_l": Vector2(0.45, 0.5), "elbow_r": Vector2(0.6, 0.5), "wrist_r": Vector2(0.6, 0.3)})
+	var close := state({"shoulder_l": Vector2(0.45, 0.5), "wrist_r": Vector2(0.6, 0.3)})
+	var no_hands := state({"shoulder_l": Vector2(0.45, 0.5), "nose": Vector2(0.5, 0.3)})
+	var q := TrackingQuality.new()
+	q.sample(no_hands, 0.0)
+	_check(q.hint() == "", "appena partito: nessun consiglio")
+	for i in 120:  # 4 s a 30 Hz: mani visibili solo un frame su due
+		q.sample(no_hands if i % 2 == 0 else good, i / 30.0)
+	_check(q.hint() == TrackingQuality.HINT_HANDS, "mani spesso perse → consiglio su luce e distanza")
+	q = TrackingQuality.new()
+	for i in 120:
+		q.sample(close, i / 30.0)
+	_check(q.hint() == TrackingQuality.HINT_TOO_CLOSE, "mani viste ma mai i gomiti → troppo vicino")
+	q.uses_pose = false
+	_check(q.hint() == "", "senza scheletro (es. solo contatti) niente consiglio sui gomiti")
+	q = TrackingQuality.new()
+	for i in 120:
+		q.sample(good, i / 30.0)
+	_check(q.hint() == "", "mani e gomiti visibili: nessun consiglio")
+	q = TrackingQuality.new()
+	for i in 120:
+		q.sample(null, i / 30.0)
+	_check(q.hint() == "", "nessuno davanti alla camera: nessun consiglio")
 
 
 func _test_baseline() -> void:

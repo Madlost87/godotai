@@ -10,7 +10,8 @@ la mano sparisce e ricompare: scatti. Qui, per ogni giocatore e ogni punto:
    dimezzata), poi sparisce;
 3. salti impossibili: uno spostamento > max_jump (in altezze dell'immagine) in un frame
    viene ignorato, a meno che si ripeta al frame dopo (allora era vero).
-Il filtro anti-tremolio resta in Godot (PlayerState), per tutti i sensori."""
+Il filtro anti-tremolio resta in Godot (PlayerState), per tutti i sensori.
+Configurazione: sezione "stabilizer" di config.py."""
 from __future__ import annotations
 
 import math
@@ -55,9 +56,11 @@ class Stabilizer:
         if not self.enabled:
             return
         t = result.frame.t
+        result.raw = {}
         for person in result.persons:
             if person.id is None:
                 continue
+            result.raw[person.id] = dict(person.points)
             st = self._people.setdefault(person.id, _PersonState())
             st.t = t
             person.points = self._stabilize(person.points, st.points, t)

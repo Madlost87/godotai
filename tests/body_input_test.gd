@@ -73,9 +73,12 @@ func _test_filter(bi: Node) -> void:
 			max_dev = maxf(max_dev, absf(bi.get_player(&"red").point_filtered(&"marker").x - 0.5))
 	_check(max_dev < 0.004, "tremolio ±0.010 ridotto a ±%.4f" % max_dev)
 	for i in 30:
-		bi.ingest_packet({"v": 1, "players": [{"id": "red", "marker": {"x": 0.9, "y": 0.5}}]}, t + 2.0 + i / 30.0)
+		bi.ingest_packet({"v": 1, "players": [{"id": "red", "marker": {"x": 0.6, "y": 0.5}}]}, t + 2.0 + i / 30.0)
 	var x: float = bi.get_player(&"red").point_filtered(&"marker").x
-	_check(x > 0.88, "spostamento seguito entro 1 s (x=%.3f)" % x)
+	_check(x > 0.59, "spostamento seguito entro 1 s (x=%.3f)" % x)
+	bi.ingest_packet({"v": 1, "players": [{"id": "red", "marker": {"x": 0.95, "y": 0.5}}]}, t + 3.1)
+	x = bi.get_player(&"red").point_filtered(&"marker").x
+	_check(is_equal_approx(x, 0.95), "salto grande (punto riapparso altrove): subito lì, senza scivolare (x=%.3f)" % x)
 	bi.update_timeouts(t + 10.0)
 	_entered.clear()
 	_lost.clear()
